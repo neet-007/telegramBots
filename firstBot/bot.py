@@ -1,8 +1,12 @@
 from typing import Any
 import aiogram
 import aiogram.filters
+from aiogram import F
+from aiogram.utils.chat_action import ChatActionMiddleware
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
+from aiogram import flags
+import aiogram.types.reaction_type_emoji as test
 import aiohttp
 import asyncio
 from dotenv import load_dotenv
@@ -19,6 +23,11 @@ class StateTest(StatesGroup):
     launguge = State()
     experience = State()
 
+class KeyboardState(StatesGroup):
+    stage1 = State()
+    stage2 = State()
+    stage3 = State()
+
 async def handle_start(message: aiogram.types.Message):
     await message.reply('hello this is start')
 
@@ -33,34 +42,34 @@ list of commad:
 """)
 
 async def handle_echo(message: aiogram.types.Message):
-    if message.text:
-        await message.answer(message.text)
+        if message.text:
+            await message.answer(message.text)
 
-
-async def handle_func1(message: aiogram.types.Message):
+async def handle_func1(message: aiogram.types.Message, state: FSMContext):
     if not message.text:
         return
 
-    params = message.text.split(' ')[1:]
-    if (len(params)) != 2:
-        await message.reply('must pass two numbers')
-        return
+    await state.set_state(KeyboardState.stage1)
+    await message.reply("i will send you your loaction if you press the button if you dont click dont",
+                            reply_markup=aiogram.types.ReplyKeyboardMarkup(
+                                keyboard=[
+                                    [
+                                        aiogram.types.KeyboardButton(text="send location", request_location=True),
+                                        aiogram.types.KeyboardButton(text="dont")
+                                    ]
+                                ],
+                                resize_keyboard=True
+                            )
+                        )
 
-    a = 0
-    b = 0
-    try:
-        a = int(params[0])
-    except ValueError:
-        await message.reply('must pass integers')
-        return
 
-    try:
-        b = int(params[1])
-    except ValueError:
-        await message.reply('must pass intgers')
-        return
+async def handle_stage1_location(message: aiogram.types.Message, state: FSMContext):
+    await state.set_state(KeyboardState.stage2)
+    await message.reply(str(message.location), reply_markup=aiogram.types.ReplyKeyboardRemove())
 
-    await message.reply(str(a * b))
+async def handle_stage1_dont(message: aiogram.types.Message, state: FSMContext):
+    await state.set_state(KeyboardState.stage2)
+    await message.reply("no loaction shared", reply_markup=aiogram.types.ReplyKeyboardRemove())
 
 async def handle_func2(message: aiogram.types.Message, state: FSMContext):
     await state.set_state(StateTest.name)
@@ -105,10 +114,13 @@ async def show_summery(message: aiogram.types.Message, data: dict[str, Any]):
 
 
 
+router.message.middleware(ChatActionMiddleware())
 router.message.register(handle_start, aiogram.filters.Command('start'))
 router.message.register(handle_help, aiogram.filters.Command('help'))
 router.message.register(handle_func1, aiogram.filters.Command('func1'))
 router.message.register(handle_func2, aiogram.filters.Command('func2'))
+router.message.register(handle_stage1_location, aiogram.filters.StateFilter(KeyboardState.stage1), F.text.casefold() == "send location")
+router.message.register(handle_stage1_dont, aiogram.filters.StateFilter(KeyboardState.stage1), F.text.casefold() == "dont")
 router.message.register(handle_name_state, aiogram.filters.StateFilter(StateTest.name))
 router.message.register(handle_lauguage_state, aiogram.filters.StateFilter(StateTest.launguge))
 router.message.register(handle_expeience, aiogram.filters.StateFilter(StateTest.experience))
@@ -120,7 +132,6 @@ async def main():
     bot = aiogram.Bot(BOT_TOKEN)
 
     dp = aiogram.Dispatcher()
-
     dp.include_router(router)
 
     await dp.start_polling(bot)
