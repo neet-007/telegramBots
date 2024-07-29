@@ -1,6 +1,6 @@
 import asyncio
 import os
-import re
+from typing import Dict
 import telegram
 import telegram.ext
 from dotenv import load_dotenv
@@ -9,74 +9,71 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv('BOT_API_TOKEN')
 
-GENDER, PHOTO, LOCATION, BIO = range(4)
+
+CHOOSING, TYPING_CHOICE, TYPING_REPLY = range(3)
+
+keyboard = [
+    ["age", "favorite color"],
+    ["number of sibilings", "...something else"],
+    ["done"]
+
+]
+
+reply_markup = telegram.ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
+
+def print_user_data(user_date:Dict[str, str]):
+    return '\n'.join([f"{key}-{val}" for key, val in user_date.items()]).join(["\n", "\n"])
 
 async def handle_start(update: telegram.Update, _):
     if not update.message:
         return
 
-    keyboard = [["boy", "girl", "other"]]
-
-    await update.message.reply_text(text="hi, what is your gender\n\n send /cancel any time to cancel",
-                                    reply_markup=telegram.ReplyKeyboardMarkup(keyboard)
+    await update.message.reply_text(text="hi, im your bot, please choose one of these to talk about,\n whene you are done send done",
+                                    reply_markup=reply_markup
                                     )
-    return GENDER
+    return CHOOSING
 
-async def handle_gender(update: telegram.Update, _):
-    if not update.message:
-        return
-    
-    if update.message.text == "other":
-        await update.message.reply_text(text="it is ok if you dont prefer not share, maybe send me a photo or sned /skip", 
-                                        reply_markup=telegram.ReplyKeyboardRemove())
-    else:
-        await update.message.reply_text(text=f"i see you are a ${update.message.text}, maybe send a photo", reply_markup=telegram.ReplyKeyboardRemove())
-
-    return PHOTO
-
-async def handle_photo(update: telegram.Update, _):
-    if not update.message:
+async def handle_choosing(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
+    if not update.message or context.user_data == None:
+        print(update.message)
+        print(context.user_data)
         return
 
-    photo_file = await update.message.photo[-1].get_file()
-    await photo_file.download_to_drive("user_photo.jpg")
-    await update.message.reply_text("nice photo, maybe you would like to share you locaion or send /skip")
+    context.user_data["choice"] = update.message.text
+    await update.message.reply_text(f"nice you chose {update.message.text}, tell me more", reply_markup=telegram.ReplyKeyboardRemove())
 
-    return LOCATION
+    return TYPING_REPLY
 
-async def handle_photo_skip(update: telegram.Update, _):
-    if not update.message:
+async def handle_choosing_custom(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
+    if not update.message or not context:
         return
 
-    await update.message.reply_text("ok how about you share you location")
+    await update.message.reply_text("alright, then tell me the category", reply_markup=telegram.ReplyKeyboardRemove())
 
-    return LOCATION
+    return TYPING_CHOICE
 
-async def handle_loaction(update: telegram.Update, _):
-    if not update.message:
+async def handle_replying(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
+    if not update.message or not context.user_data:
         return
 
-    await update.message.reply_text("wow nice city i may visit someday")
+    context.user_data[context.user_data["choice"]] = update.message.text
+    del context.user_data["choice"]
 
-    return telegram.ext.ConversationHandler.END
+    await update.message.reply_text(f"nice, just to let you know you told me this {print_user_data(context.user_data)}, tell me more", reply_markup=reply_markup)
 
-async def handle_loaction_skip(update: telegram.Update, _):
-    if not update.message:
+    return CHOOSING
+
+async def handle_done(update: telegram.Update, context:telegram.ext.ContextTypes.DEFAULT_TYPE):
+    if not update.message or context.user_data == None:
         return
 
-    await update.message.reply_text("you are paranoid")
+    if "choice" in context.user_data:
+        del context.user_data["choice"]
 
-    return telegram.ext.ConversationHandler.END
+    await update.message.reply_text(f"nice, this is what i learned today {print_user_data(context.user_data)}, comebakc later", reply_markup=telegram.ReplyKeyboardRemove())
+    context.user_data.clear()
 
-async def handle_cancel(update: telegram.Update, _):
-    if not update.message:
-        return
-
-    await update.message.reply_text("bye", reply_markup=telegram.ReplyKeyboardRemove())
-
-    return telegram.ext.ConversationHandler.END
-
-
+    return telegram.ext.ConversationHandler.END 
 
 def main():
     if not BOT_TOKEN:
@@ -87,13 +84,13 @@ def main():
     conv_handler = telegram.ext.ConversationHandler(
                    entry_points=[telegram.ext.CommandHandler("start", handle_start)],
                    states={
-                        GENDER:[telegram.ext.MessageHandler(telegram.ext.filters.Regex("^(boy|girl|other)$"), handle_gender)],
-                        PHOTO:[telegram.ext.MessageHandler(telegram.ext.filters.PHOTO, handle_photo), telegram.ext.CommandHandler("skip", handle_photo_skip)],
-                        LOCATION:[telegram.ext.MessageHandler(telegram.ext.filters.LOCATION, handle_loaction), 
-                                  telegram.ext.CommandHandler("skip", handle_loaction_skip)],
+                        CHOOSING:[telegram.ext.MessageHandler(telegram.ext.filters.Regex("^(age|favorite color|number of sibilings)$"), handle_choosing),
+                                  telegram.ext.MessageHandler(telegram.ext.filters.Regex("^...something else$"), handle_choosing_custom)],
+                        TYPING_CHOICE:[telegram.ext.MessageHandler(telegram.ext.filters.TEXT & ~(telegram.ext.filters.COMMAND | telegram.ext.filters.Regex("^done$")), handle_choosing)],
+                        TYPING_REPLY:[telegram.ext.MessageHandler(telegram.ext.filters.TEXT & ~(telegram.ext.filters.COMMAND | telegram.ext.filters.Regex("^done$")), handle_replying)]
                    },
-                   fallbacks=[telegram.ext.CommandHandler("cancel", handle_cancel)]
-                )
+                   fallbacks=[telegram.ext.MessageHandler(telegram.ext.filters.Regex("^done$"), handle_done)]
+    )
 
     applicaton.add_handler(conv_handler)
     applicaton.run_polling(allowed_updates=telegram.Update.ALL_TYPES)
