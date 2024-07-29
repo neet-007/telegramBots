@@ -64,12 +64,42 @@ async def handle_func1(message: aiogram.types.Message, state: FSMContext):
 
 
 async def handle_stage1_location(message: aiogram.types.Message, state: FSMContext):
+    await state.update_data(stage1=message.location)
     await state.set_state(KeyboardState.stage2)
-    await message.reply(str(message.location), reply_markup=aiogram.types.ReplyKeyboardRemove())
+    await message.reply(f'{str(message.location)} choose one of these options',
+                            reply_markup=aiogram.types.InlineKeyboardMarkup(
+                                inline_keyboard=[
+                                    [
+                                        aiogram.types.InlineKeyboardButton(text="choice 1"),
+                                        aiogram.types.InlineKeyboardButton(text="choice 2")
+                                    ]           
+                                ]
+                            )
+                        )
 
 async def handle_stage1_dont(message: aiogram.types.Message, state: FSMContext):
     await state.set_state(KeyboardState.stage2)
-    await message.reply("no loaction shared", reply_markup=aiogram.types.ReplyKeyboardRemove())
+    await message.reply("no loaction shared, choose one of these options",
+                            reply_markup=aiogram.types.InlineKeyboardMarkup(
+                                inline_keyboard=[
+                                    [
+                                        aiogram.types.InlineKeyboardButton(text="choice 1"),
+                                        aiogram.types.InlineKeyboardButton(text="choice 2")
+                                    ]           
+                                ]
+                            )
+                        )
+
+
+async def handle_stage2_choice1(message: aiogram.types.Message, state: FSMContext):
+    await state.update_data(stage2=message.text)
+    await state.set_state(KeyboardState.stage3)
+    await message.reply("this is choice one")
+
+async def handle_stage2_choice2(message: aiogram.types.Message, state: FSMContext):
+    await state.update_data(stage2=message.text)
+    await state.set_state(KeyboardState.stage3)
+    await message.reply("this is choice two")
 
 async def handle_func2(message: aiogram.types.Message, state: FSMContext):
     await state.set_state(StateTest.name)
@@ -121,6 +151,8 @@ router.message.register(handle_func1, aiogram.filters.Command('func1'))
 router.message.register(handle_func2, aiogram.filters.Command('func2'))
 router.message.register(handle_stage1_location, aiogram.filters.StateFilter(KeyboardState.stage1), F.text.casefold() == "send location")
 router.message.register(handle_stage1_dont, aiogram.filters.StateFilter(KeyboardState.stage1), F.text.casefold() == "dont")
+router.message.register(handle_stage2_choice1, aiogram.filters.StateFilter(KeyboardState.stage2), F.text.casefold() == "choice1")
+router.message.register(handle_stage2_choice2, aiogram.filters.StateFilter(KeyboardState.stage2), F.text.casefold() == "choice2")
 router.message.register(handle_name_state, aiogram.filters.StateFilter(StateTest.name))
 router.message.register(handle_lauguage_state, aiogram.filters.StateFilter(StateTest.launguge))
 router.message.register(handle_expeience, aiogram.filters.StateFilter(StateTest.experience))
