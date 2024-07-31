@@ -7,6 +7,8 @@ name = "pypi"
 aiogram = "*"
 python-dotenv = "*"
 python-telegram-bot = "*"
+pillow = "*"
+reportlab = "*"
 
 [dev-packages]
 
