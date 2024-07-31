@@ -32,11 +32,15 @@ async def handle_echo_file(update: telegram.Update, context: telegram.ext.Contex
     file = await update.message.effective_attachment[-1].get_file()
     await update.message.reply_photo(file.file_id)
 
-async def handle_read_in_memory(update: telegram.Update, _):
-    if not update.message or not update.message.effective_attachment:
+async def handle_read_in_memory(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
+    if not update.message or not update.message.effective_attachment or context.user_data == None or not update.effective_chat:
         return
+    
+    images_list = []
+    if "images_list" in context.user_data:
+        images_list = context.user_data["images_list"]
 
-    await update.message.reply_chat_action(action="typing")
+    await context.bot.send_chat_action(action=telegram.constants.ChatAction.TYPING, chat_id=update.effective_chat.id)
     file = await update.message.effective_attachment[-1].get_file()
 
     buffer = io.BytesIO()
@@ -45,20 +49,49 @@ async def handle_read_in_memory(update: telegram.Update, _):
 
     buffer.seek(0)
 
-    file_contents = buffer.read()
-
     im = Image.open(buffer)
+
+    images_list.append(im)
+
+    context.user_data["images_list"] = images_list
+    keyboard = [
+        [telegram.InlineKeyboardButton(text="convert", callback_data="convert_img_pdf")]
+    ]
+    await update.message.reply_text(f"there are {len(images_list)} items now. send more or click the button to convert",
+                                    reply_markup=telegram.InlineKeyboardMarkup(keyboard))
+
+async def handle_convert_img_pdf(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
+    if not update.effective_chat or context.user_data == None:
+        return
+
+    query = update.callback_query
+    if not query:
+        return
+
+    await query.answer()
+    if not "images_list" in context.user_data:
+        return
+
+    images_list = context.user_data["images_list"]
+
 
     pdf_buffer = io.BytesIO()
 
-    c = canvas.Canvas(pdf_buffer, pagesize=tuple([float(im.width), float(im.height)]))
-    c.drawInlineImage(image=im, x=0, y=0)
-    c.showPage()
+    c = canvas.Canvas(pdf_buffer)
+    for im in images_list:
+        c.setPageSize(tuple([float(im.width), float(im.height)]))
+        c.drawInlineImage(image=im, x=0, y=0)
+        c.showPage()
+        im.close()
+        
     c.save()
 
     pdf_buffer.seek(0)
-    await update.message.reply_document(document=pdf_buffer, filename="test.pdf")
-    print(im.size, im.format_description, im.mode)
+    
+    context.user_data.clear()
+    await query.from_user.send_document(document=pdf_buffer, filename="test.pdf")
+    pdf_buffer.seek(0)
+    pdf_buffer.truncate(0)
 
 def main():
     if not BOT_TOKEN:
@@ -66,7 +99,7 @@ def main():
 
     application = telegram.ext.Application.builder().token(BOT_TOKEN).build()
     application.add_handler(telegram.ext.MessageHandler(telegram.ext.filters.PHOTO, handle_read_in_memory))
-    application.add_handler(telegram.ext.MessageHandler(telegram.ext.filters.TEXT, handle_send_file))
+    application.add_handler(telegram.ext.CallbackQueryHandler(handle_convert_img_pdf, pattern="convert_img_pdf"))
     application.run_polling(allowed_updates=telegram.Update.ALL_TYPES)
 
 if __name__ == "__main__":
