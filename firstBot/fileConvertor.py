@@ -36,6 +36,7 @@ async def handle_read_in_memory(update: telegram.Update, _):
     if not update.message or not update.message.effective_attachment:
         return
 
+    await update.message.reply_chat_action(action="typing")
     file = await update.message.effective_attachment[-1].get_file()
 
     buffer = io.BytesIO()
@@ -50,7 +51,7 @@ async def handle_read_in_memory(update: telegram.Update, _):
 
     pdf_buffer = io.BytesIO()
 
-    c = canvas.Canvas(pdf_buffer)
+    c = canvas.Canvas(pdf_buffer, pagesize=tuple([float(im.width), float(im.height)]))
     c.drawInlineImage(image=im, x=0, y=0)
     c.showPage()
     c.save()
