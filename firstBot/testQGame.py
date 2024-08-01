@@ -3,6 +3,7 @@ import os
 import base64
 from dotenv import load_dotenv
 import telegram
+from telegram.constants import ChatType
 import telegram.ext
 from random import randint
 
@@ -80,8 +81,6 @@ class QGame:
 
 
     def _end_game(self):
-        if self.curr_state == 0:
-            return False, {}
         scores = self.scores
         self.scores = {}
         self.players = {}
@@ -108,6 +107,9 @@ def remove_jobs(name:str, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
 async def handle_start(update: telegram.Update, context:telegram.ext.ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.effective_chat or not context.job_queue:
         return 
+    if update.effective_chat.type != ChatType.GROUP and update.effective_chat.type != ChatType.SUPERGROUP:
+        return
+
     if update.effective_chat.id in games:
         await update.message.reply_text("a game has already started")
         return
@@ -121,16 +123,38 @@ async def handle_start(update: telegram.Update, context:telegram.ext.ContextType
         games[update.effective_chat.id] = QGame(chat_id=update.effective_chat.id)
         await update.message.reply_text("a new game has started click button to join", reply_markup=telegram.InlineKeyboardMarkup(keyboard))
 
+async def handle_join_command(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
+    print("joingin game")
+    if not update.message or not update.message.from_user or not update.effective_chat:
+        return  
+
+    if update.effective_chat.type != ChatType.GROUP and update.effective_chat.type != ChatType.SUPERGROUP:
+        return
+
+    game = games.get(update.effective_chat.id, None)
+    if not game or game.curr_state != 0:
+        await context.bot.send_message(text="game doest not exist please create game then try again", chat_id=update.effective_chat.id)
+        return 
+
+    res = game._join_game(update.message.from_user)
+    if not res:
+        await context.bot.send_message(text=f"user {update.message.from_user.username} has already joined the game or this is not the joining state", chat_id=update.effective_chat.id)
+    else:
+        await context.bot.send_message(text=f"user {update.message.from_user.username} has joined the game, when ready send /start_game", chat_id=update.effective_chat.id)
+
+
 async def handle_join(update: telegram.Update, context:telegram.ext.ContextTypes.DEFAULT_TYPE):
     print("joingin game")
     if not update.callback_query or not update.effective_chat:
         return  
 
+    if update.effective_chat.type != ChatType.GROUP or update.effective_chat.type != ChatType.SUPERGROUP:
+        return
     query = update.callback_query
     await query.answer()
 
     game = games.get(update.effective_chat.id, None)
-    if not game:
+    if not game or game.curr_state != 0:
         await context.bot.send_message(text="game doest not exist please create game then try again", chat_id=update.effective_chat.id)
         return 
 
@@ -144,6 +168,8 @@ async def handle_game_start(update: telegram.Update, context: telegram.ext.Conte
     if not update.effective_chat or not update.message:
         return
 
+    if update.effective_chat.type != ChatType.GROUP and update.effective_chat.type != ChatType.SUPERGROUP:
+        return
     game = games.get(update.effective_chat.id, None)
     if not game:
         await update.message.reply_text("there is no game, create a game first")
@@ -190,7 +216,7 @@ async def handle_round_start_callback(update: telegram.Update, context: telegram
 
 
 async def handle_round_start(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
-    if not update.message or context.user_data == None or not update.message.text or not update.effective_chat or not update.message.from_user or update.effective_chat.type != "private":
+    if not update.message or context.user_data == None or not update.message.text or not update.effective_chat or not update.message.from_user or update.effective_chat.type != ChatType.PRIVATE:
         return await handle_send_answer(update, context)
 
     if "hints" in context.user_data:
@@ -217,7 +243,7 @@ async def handle_round_start(update: telegram.Update, context: telegram.ext.Cont
 
 
 async def handle_send_answer(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
-    if not update.message or context.user_data == None or not update.message.text or not update.effective_chat or not update.message.from_user or update.effective_chat.type != "private":
+    if not update.message or context.user_data == None or not update.message.text or not update.effective_chat or not update.message.from_user or update.effective_chat.type != ChatType.PRIVATE:
         return await handle_play(update, context)
     print("1111111111111111111")
 
@@ -253,6 +279,8 @@ async def handle_play(update: telegram.Update, context: telegram.ext.ContextType
     if not update.message or not update.message.text or not update.message.from_user or not update.effective_chat:
         return 
 
+    if update.effective_chat.type != ChatType.GROUP and update.effective_chat.type != ChatType.SUPERGROUP:
+        return
     game = games.get(update.effective_chat.id, None)
     if not game:
         await update.message.reply_text("there is no game, please start a new game first")
@@ -284,6 +312,8 @@ async def handle_round_end(update: telegram.Update, context: telegram.ext.Contex
     if not update.message or not update.message.text or not update.effective_chat:
         return 
 
+    if update.effective_chat.type != ChatType.GROUP and update.effective_chat.type != ChatType.SUPERGROUP:
+        return
     game = games.get(update.effective_chat.id, None)
     if not game:
         await update.message.reply_text("there is no game, please start a new game first")
@@ -316,6 +346,8 @@ async def handle_end_game(update: telegram.Update, context: telegram.ext.Context
     if not update.message or not update.effective_chat:
         return 
 
+    if update.effective_chat.type != ChatType.GROUP and update.effective_chat.type != ChatType.SUPERGROUP:
+        return
     game = games.get(update.effective_chat.id, None)
     if not game:
         await context.bot.send_message(text="there is no game, start a new game", chat_id=update.effective_chat.id)
@@ -338,13 +370,12 @@ async def handle_cancel(update: telegram.Update, context: telegram.ext.ContextTy
     if not update.message or not update.effective_chat:
         return 
 
+    if update.effective_chat.type != ChatType.GROUP and update.effective_chat.type != ChatType.SUPERGROUP:
+        return
     game = games.get(update.effective_chat.id, None)
     if game == None:
         await context.bot.send_message(text="the game is canceld, bye", chat_id=update.effective_chat.id)
         return 
-
-    if game.curr_state == 0:
-        return
 
     text = ""
     for key, val in game.scores.items():
@@ -402,6 +433,7 @@ def main():
     application.add_handler(telegram.ext.MessageHandler(telegram.ext.filters.Regex("^(end|new)$"), handle_round_end))
     application.add_handler(telegram.ext.MessageHandler(telegram.ext.filters.Regex("^scores$"), handle_end_game))
     application.add_handler(telegram.ext.CommandHandler("cancel", handle_cancel))
+    application.add_handler(telegram.ext.CommandHandler("join", handle_join_command))
     application.run_polling(allowed_updates=telegram.Update.ALL_TYPES)
 
 if __name__ == "__main__":

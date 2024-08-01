@@ -43,6 +43,7 @@ async def handle_read_in_memory(update: telegram.Update, context: telegram.ext.C
     await context.bot.send_chat_action(action=telegram.constants.ChatAction.TYPING, chat_id=update.effective_chat.id)
     file = await update.message.effective_attachment[-1].get_file()
 
+    print(file)
     buffer = io.BytesIO()
 
     await file.download_to_memory(out=buffer)
@@ -108,33 +109,88 @@ async def handle_change_pdf_name_callback(update: telegram.Update, context: tele
     buffer = io.BytesIO()
 
     file = await query._get_message().effective_attachment.get_file() 
+    print(file)
     buffer.seek(0)
     await file.download_to_memory(out=buffer)
-
+    print(buffer)
     context.user_data["to_change_pdf"] = buffer
     
     await query.from_user.send_message("send the new file name")
-
-    buffer.seek(0)
-    buffer.truncate(0)
 
 async def handle_change_pdf_name(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
     if not update.message or context.user_data == None:
         return
 
-    c = canvas.Canvas(context.user_data["to_change_pdf"])
+    buffer = context.user_data["to_change_pdf"]
+    print(buffer)
+
+    buffer.seek(0)
+    c = canvas.Canvas(buffer)
+    c.setTitle(update.message.text)
+    c.showPage()
     c.save()
 
-    await update.message.reply_document(filename=f"{update.message.text}.pdf", document=context.user_data["to_change_pdf"])
+    buffer.seek(0)
+    await update.message.reply_document(filename=f"{update.message.text}.pdf", document=buffer)
     context.user_data.clear()
     
-    
+    buffer.seek(0)
+    buffer.truncate(0)
+
+async def handle_image_foramts_command(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
+    if not update.message or context.user_data == None:
+        return
+
+    context.user_data["convert_state"] = 1
+
+    await update.message.reply_text(text="send the image as a file, telegram will convert all images sent as photo to JPEG")
+
+async def handle_image_formats(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
+    if not update.message or not update.message.effective_attachment or not update.effective_chat or context.user_data == None:
+        return
+
+    state = context.user_data.get("convert_state", None)
+    if not state or state != 1:
+        return
+
+    out = update.message.effective_attachment.file_name
+    if not out:
+        out = "new_image"
+    else:
+        out = os.path.splitext(out)[0]
+    file = await update.message.effective_attachment.get_file()   
+    buffer = io.BytesIO()
+    buffer.seek(0)
+    await file.download_to_memory(out=buffer)
+
+    try:
+        im = Image.open(buffer)
+        print(im.format)
+    except OSError:
+        return await context.bot.send_message(chat_id=update.effective_chat.id, text="this file type is not supported")
+
+    if im.format == "JPEG":
+        im.save(fp=buffer, format="PNG")
+        out += ".png"
+    elif im.format == "PNG":
+        if im.mode == "RGBA":
+            print(im.mode)
+            im = im.convert("RGB")
+        print(im.mode)
+        im.save(fp=buffer, format="JPEG")
+        out += ".jpg"
+    else:
+        return await context.bot.send_message(chat_id=update.effective_chat.id, text="this image type is not supported")
+    buffer.seek(0)
+    await context.bot.send_document(chat_id=update.effective_chat.id, document=buffer, filename=out)
 
 def main():
     if not BOT_TOKEN:
         return
 
     application = telegram.ext.Application.builder().token(BOT_TOKEN).build()
+    application.add_handler(telegram.ext.CommandHandler("convert", handle_image_foramts_command))
+    application.add_handler(telegram.ext.MessageHandler(telegram.ext.filters.Document.ALL, handle_image_formats))
     application.add_handler(telegram.ext.MessageHandler(telegram.ext.filters.PHOTO, handle_read_in_memory))
     application.add_handler(telegram.ext.CallbackQueryHandler(handle_convert_img_pdf, pattern="convert_img_pdf"))
     application.add_handler(telegram.ext.CallbackQueryHandler(handle_change_pdf_name_callback, pattern="change_pdf_name"))
