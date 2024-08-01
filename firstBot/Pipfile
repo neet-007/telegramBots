@@ -6,9 +6,9 @@ name = "pypi"
 [packages]
 aiogram = "*"
 python-dotenv = "*"
-python-telegram-bot = "*"
 pillow = "*"
 reportlab = "*"
+python-telegram-bot = {extras = ["job-queue"], version = "*"}
 
 [dev-packages]
 

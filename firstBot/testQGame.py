@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import base64
 from dotenv import load_dotenv
@@ -92,14 +93,28 @@ class QGame:
 
 games:dict[int, QGame] = {}
 
+def remove_jobs(name:str, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
+    if not context.job_queue:
+        return
+
+    jobs = context.job_queue.get_jobs_by_name(name)
+    if not jobs:
+        return
+
+    for job in jobs:
+        job.schedule_removal()
+    
 
 async def handle_start(update: telegram.Update, context:telegram.ext.ContextTypes.DEFAULT_TYPE):
-    if not update.message or not update.effective_chat:
+    if not update.message or not update.effective_chat or not context.job_queue:
         return 
     if update.effective_chat.id in games:
         await update.message.reply_text("a game has already started")
         return
     else:
+        data = {"game_id":update.effective_chat.id, "time":datetime.now()}
+        context.job_queue.run_repeating(handle_reapting_join_job, interval=20, first=10, data=data, chat_id=update.effective_chat.id, name="reapting_join_job")
+        context.job_queue.run_once(handle_start_game_job, when=60, data=data, chat_id=update.effective_chat.id, name="start_game_job")
         keyboard = [
             [telegram.InlineKeyboardButton("join", callback_data="join_game")]
         ]
@@ -134,6 +149,9 @@ async def handle_game_start(update: telegram.Update, context: telegram.ext.Conte
         await update.message.reply_text("there is no game, create a game first")
         return
     
+    remove_jobs("reapting_join_job", context)
+    remove_jobs("start_game_job", context)
+
     res, curr_player = game._start_game()
     if not res:
         await context.bot.send_message(text="the number of players is less than two, more players must join or this is not start game stage", chat_id=update.effective_chat.id)
@@ -290,7 +308,7 @@ async def handle_round_end(update: telegram.Update, context: telegram.ext.Contex
     keyboard = [
         [telegram.InlineKeyboardButton(text="send hints", callback_data="hints")]
     ]
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=f"player {game.curr_player} press the button to send the hits",
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=f"player {game.curr_player.mention_html()} press the button to send the hits",
                                    parse_mode=telegram.constants.ParseMode.HTML, reply_markup=telegram.InlineKeyboardMarkup(keyboard))
     return 
 
@@ -334,10 +352,42 @@ async def handle_cancel(update: telegram.Update, context: telegram.ext.ContextTy
         text += f"{user.username if user.username else user.first_name}:{val}\n"
     
     game._end_game()
+    remove_jobs("reapting_join_job", context)
+    remove_jobs("start_game_job", context)
     del games[update.effective_chat.id]
 
     await context.bot.send_message(text=f"the game has ended, here are the socres\n {text}", chat_id=update.effective_chat.id)
 
+async def handle_reapting_join_job(context: telegram.ext.ContextTypes.DEFAULT_TYPE):
+    if not context.job or not context.job.chat_id or not isinstance(context.job.data, dict):
+        return
+
+    game =games.get(context.job.data["game_id"], None)
+    if not game or game.curr_state != 0:
+        return
+
+    await context.bot.send_message(chat_id=context.job.chat_id, text=f"to join the game send /join\n reaming time {round((context.job.data['time'] - datetime.now()).seconds)}")
+
+async def handle_start_game_job(context: telegram.ext.ContextTypes.DEFAULT_TYPE):
+    if not context.job or not context.job.chat_id or not isinstance(context.job.data, dict):
+        return
+
+    game = games.get(context.job.data["game_id"], None)
+    if not game or game.curr_state != 0:
+        return
+    
+    remove_jobs("reapting_join_job", context)
+    res, _ = game._start_game()
+    if not res:
+        del games[game.chat_id]
+        return await context.bot.send_message(text="not enougp players joined", chat_id=context.job.chat_id)
+
+    
+    keyboard = [
+        [telegram.InlineKeyboardButton(text="send hints", callback_data="hints")]
+    ]
+    await context.bot.send_message(chat_id=context.job.chat_id, text=f"player {game.curr_player.mention_html()} press the button to get the hinst",
+                                   parse_mode=telegram.constants.ParseMode.HTML, reply_markup=telegram.InlineKeyboardMarkup(keyboard))
 
 def main():
     if not BOT_TOKEN:
