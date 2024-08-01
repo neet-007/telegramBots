@@ -88,10 +88,47 @@ async def handle_convert_img_pdf(update: telegram.Update, context: telegram.ext.
 
     pdf_buffer.seek(0)
     
+    keyboard = [
+        [telegram.InlineKeyboardButton("change name", callback_data="change_pdf_name")]
+    ]
+
     context.user_data.clear()
-    await query.from_user.send_document(document=pdf_buffer, filename="test.pdf")
+    await query.delete_message()
+    await query.from_user.send_document(document=pdf_buffer, filename="test.pdf", reply_markup=telegram.InlineKeyboardMarkup(keyboard))
     pdf_buffer.seek(0)
     pdf_buffer.truncate(0)
+
+async def handle_change_pdf_name_callback(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
+    if not update.callback_query or context.user_data == None:
+        return
+
+    query = update.callback_query
+    await query.answer()
+
+    buffer = io.BytesIO()
+
+    file = await query._get_message().effective_attachment.get_file() 
+    buffer.seek(0)
+    await file.download_to_memory(out=buffer)
+
+    context.user_data["to_change_pdf"] = buffer
+    
+    await query.from_user.send_message("send the new file name")
+
+    buffer.seek(0)
+    buffer.truncate(0)
+
+async def handle_change_pdf_name(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
+    if not update.message or context.user_data == None:
+        return
+
+    c = canvas.Canvas(context.user_data["to_change_pdf"])
+    c.save()
+
+    await update.message.reply_document(filename=f"{update.message.text}.pdf", document=context.user_data["to_change_pdf"])
+    context.user_data.clear()
+    
+    
 
 def main():
     if not BOT_TOKEN:
@@ -100,6 +137,8 @@ def main():
     application = telegram.ext.Application.builder().token(BOT_TOKEN).build()
     application.add_handler(telegram.ext.MessageHandler(telegram.ext.filters.PHOTO, handle_read_in_memory))
     application.add_handler(telegram.ext.CallbackQueryHandler(handle_convert_img_pdf, pattern="convert_img_pdf"))
+    application.add_handler(telegram.ext.CallbackQueryHandler(handle_change_pdf_name_callback, pattern="change_pdf_name"))
+    application.add_handler(telegram.ext.MessageHandler((telegram.ext.filters.TEXT & ~telegram.ext.filters.COMMAND), handle_change_pdf_name))
     application.run_polling(allowed_updates=telegram.Update.ALL_TYPES)
 
 if __name__ == "__main__":

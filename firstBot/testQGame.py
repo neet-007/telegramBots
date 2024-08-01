@@ -37,7 +37,7 @@ class QGame:
         keys = list(self.players.values())
         self.curr_player = keys[randint(0, len(keys) - 1)]
         self.scores = {key:0 for key in self.players.keys()}
-        self.curr_state += 1
+        self.curr_state = 1
         return True, self.curr_player
 
     def _start_round(self, curr_hints:list[str], curr_answer:str):
@@ -47,7 +47,7 @@ class QGame:
             return False
         self.curr_answer = curr_answer
         self.curr_hints = curr_hints
-        self.curr_state += 1
+        self.curr_state = 2
         return True
 
     def _start_play(self):
@@ -66,7 +66,7 @@ class QGame:
 
         self.curr_hints = ["","","",]
         self.curr_answer = ""
-        self.curr_state += 1
+        self.curr_state = 4
 
         keys = list(self.players.values())
         for i in range(len(keys)):
@@ -142,7 +142,7 @@ async def handle_game_start(update: telegram.Update, context: telegram.ext.Conte
     keyboard = [
         [telegram.InlineKeyboardButton(text="press to send hits", callback_data="hints")]
     ]
-    await context.bot.send_message(chat_id=update.effective_chat.id, text=f"player {curr_player} press the button to send the hints",
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=f"player {curr_player.mention_html()} press the button to send the hints",
                                    parse_mode=telegram.constants.ParseMode.HTML, reply_markup=telegram.InlineKeyboardMarkup(keyboard))
 
 
@@ -226,7 +226,7 @@ async def handle_send_answer(update: telegram.Update, context: telegram.ext.Cont
     b = game._start_play()
     if not b:
         print("bbbbbbbbbbbbbbbb falaaaaaaaaase")
-    await context.bot.send_message(text="the game has start, if you want to answer send answer:<your answer>", chat_id=context.user_data["game_id"])
+    await context.bot.send_message(text=f"the game has start,\n the hints are {','.join(context.user_data['hints'])} if you want to answer send answer:<your answer>", chat_id=context.user_data["game_id"])
 
     context.user_data.clear()
 
@@ -272,13 +272,18 @@ async def handle_round_end(update: telegram.Update, context: telegram.ext.Contex
         return 
 
     if game.curr_state != 4:
+        return
+
+    answer = update.message.text.lower()
+        
+    if answer == "scores":
         return await handle_end_game(update, context)
 
-    if update.message.text.lower() == "end":
+    if answer == "end":
         await update.message.reply_text("the game has ended, type scores to get the scores")
         return
   
-    elif update.message.text.lower() != "new":
+    if answer != "new":
         await update.message.reply_text("reply with end or new")
         return 
 
