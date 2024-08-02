@@ -1,0 +1,13 @@
+.side-nav-container {
+	position: absolute;
+	left: -100%;
+	overflow: hidden;
+	list-style: none;
+	transition: left 500ms ease-in-out;
+}
+
+.side-nav-li {
+	padding: 1rem;
+	background-color: red;
+	color: white;
+}
