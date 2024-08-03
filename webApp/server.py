@@ -17,7 +17,7 @@ def get_media():
         return "not found", 400
 
     if file:
-        file.save(f'static/uploads/uploaded_img.jpg')
+        file.save('static/uploads/uploaded_img.jpg')
         return "found", 200
 
     return "error", 400
