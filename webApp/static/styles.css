@@ -8,11 +8,17 @@
 
 .button {
 	z-index: 100;
+	background: none;
+	background-color: none;
+	padding: 0.25rem;
+	background-color: rgba(0, 0, 0, 0.75);
+	color: white;
 }
 
 .button-container {
 	z-index: 100;
 	position: absolute;
 	display: flex;
-	gap: 1rem;
+	flex-direction: column;
+	gap: 0.25rem;
 }
