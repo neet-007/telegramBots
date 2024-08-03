@@ -5,6 +5,12 @@ const canvas = document.getElementById("main-canvas");
 const canvasContext = canvas.getContext("2d");
 const backgroundDiv = document.getElementById("background-div");
 const canvasRect = canvas.getBoundingClientRect();
+const highliteButton = document.getElementById("highlite-button");
+const eraserButton = document.getElementById("eraser-button");
+
+
+highliteButton.onclick = () => toggleCommands("highlite");
+eraserButton.onclick = () => toggleCommands("erase");
 
 console.log(canvas)
 console.log(canvasContext)
@@ -21,6 +27,18 @@ backgroundDiv.style.pointerEvents = "none";
 
 canvas.addEventListener("mousedown", handleCanvasMouseDown);
 
+function toggleCommands(command) {
+	console.log("dsdsdasdsdsadadad")
+	if (command === "highlite") {
+		canvas.removeEventListener("mousedown", handleCanvasMouseDownErase);
+		canvas.addEventListener("mousedown", handleCanvasMouseDown);
+		return
+	}
+	canvas.removeEventListener("mousedown", handleCanvasMouseDown);
+	canvas.removeEventListener("mousemove", handleCanvasMouseMove);
+	canvas.addEventListener("mousedown", handleCanvasMouseDownErase);
+}
+
 function handleCanvasMouseMove(e) {
 	canvasContext.globalAlpha = 0.2;
 	canvasContext.clearRect(prevRectCoords.x1, prevRectCoords.y1, prevRectCoords.x2, prevRectCoords.y2);
@@ -30,6 +48,16 @@ function handleCanvasMouseMove(e) {
 	};
 	canvasContext.fillRect(prevRectCoords.x1, prevRectCoords.y1,
 		prevRectCoords.x2, prevRectCoords.y2);
+}
+
+function handleCanvasMouseMoveErase(e) {
+	canvasContext.clearRect(e.clientX - canvasRect.left, e.clientY - canvasRect.top, 50, 50);
+}
+
+function handleCanvasMouseUpErase(_) {
+	canvas.removeEventListener("mouseup", handleCanvasMouseUpErase);
+	canvas.removeEventListener("mousemove", handleCanvasMouseMoveErase);
+	canvas.addEventListener("mousedown", handleCanvasMouseDownErase);
 }
 
 function handleCanvasMouseDownEnd(_) {
@@ -50,6 +78,13 @@ function handleCanvasMouseDown(e) {
 	canvas.removeEventListener("mousedown", handleCanvasMouseDown);
 	canvas.addEventListener("mousemove", handleCanvasMouseMove);
 	canvas.addEventListener("mousedown", handleCanvasMouseDownEnd);
+}
+
+function handleCanvasMouseDownErase(e) {
+	canvasContext.clearRect(e.clientX - canvasRect.left, e.clientY - canvasRect.top, 50, 50);
+	canvas.removeEventListener("mousedown", handleCanvasMouseDownErase);
+	canvas.addEventListener("mousemove", handleCanvasMouseMoveErase);
+	canvas.addEventListener("mouseup", handleCanvasMouseUpErase);
 }
 
 tele.WebApp.ready();

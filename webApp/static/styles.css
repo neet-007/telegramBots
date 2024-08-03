@@ -5,3 +5,14 @@
 .main-canvas {
 	position: absolute;
 }
+
+.button {
+	z-index: 100;
+}
+
+.button-container {
+	z-index: 100;
+	position: absolute;
+	display: flex;
+	gap: 1rem;
+}
