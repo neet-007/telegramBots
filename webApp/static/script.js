@@ -2,6 +2,7 @@ import { Highlighter } from "./highlighter.js";
 import { Eraser } from "./eraser.js";
 import { Line } from "./line.js";
 import { Pen } from "./pen.js";
+import { Ellipse } from "./ellipse.js";
 
 const tele = window.Telegram
 const canvas = document.getElementById("main-canvas");
@@ -38,7 +39,8 @@ const commandsObjects = {
 	"highlight": new Highlighter(highliteButton, canvas, canvasContext),
 	"erase": new Eraser(eraserButton, canvas, canvasContext),
 	"line": new Line(lineButton, canvas, canvasContext),
-	"pen": new Pen(penButton, canvas, canvasContext)
+	"pen": new Pen(penButton, canvas, canvasContext),
+	"ellipse": new Ellipse(ellipseButton, canvas, canvasContext)
 }
 
 function removeEventListeners() {
@@ -71,20 +73,17 @@ function toggleMenu() {
 function toggleCommands(command) {
 	PREV_COMMAND = CURR_COMMAND;
 	CURR_COMMAND = command;
+	removeEventListeners();
 	if (command === "highlight") {
-		removeEventListeners();
 		canvas.addEventListener("mousedown", commandsObjects.highlight.mousedown);
 	} else if (command === "erase") {
-		removeEventListeners();
 		canvas.addEventListener("mousedown", commandsObjects.erase.mousedown);
 	} else if (command === "line") {
-		removeEventListeners();
 		canvas.addEventListener("mousedown", commandsObjects.line.mousedown);
 	} else if (command === "pen") {
-		removeEventListeners();
 		canvas.addEventListener("mousedown", commandsObjects.pen.mousedown);
 	} else if (command === "ellipse") {
-
+		canvas.addEventListener("mousedown", commandsObjects.ellipse.mousedown);
 	} else {
 		console.error("command is not supported");
 	}
