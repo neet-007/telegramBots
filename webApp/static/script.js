@@ -6,6 +6,9 @@ import { Ellipse } from "./ellipse.js";
 
 const tele = window.Telegram
 const canvas = document.getElementById("main-canvas");
+/**
+ *@type(CanvasRenderingContext2D)
+ * */
 const canvasContext = canvas.getContext("2d");
 const backgroundDiv = document.getElementById("background-div");
 
@@ -20,6 +23,12 @@ const ellipseButton = document.getElementById("ellipse-button");
 let IS_MENU_OPEN = true;
 let PREV_COMMAND = undefined;
 let CURR_COMMAND = undefined;
+const SHAPES = {
+	"highlight": [[], 0.2],
+	"line": [[], 1],
+	"pen": [[], 1],
+	"ellipse": [[], 0.2]
+}
 
 menuControlButton.onclick = () => toggleMenu();
 highliteButton.onclick = () => toggleCommands("highlight");
@@ -35,22 +44,37 @@ backgroundDiv.style.width = "387px";
 backgroundDiv.style.height = "387px";
 backgroundDiv.style.pointerEvents = "none";
 
+function deleteShape(command, index) {
+	SHAPES[command][0].splice(index);
+	canvasContext.clearRect(0, 0, canvas.width, canvas.height);
+	Object.values(SHAPES).forEach(value => {
+		value[0].forEach(shape => {
+			if (value[1] < 1) {
+				canvasContext.globalAlpha = value[1];
+				canvasContext.fill(shape);
+				canvasContext.globalAlpha = 1.0;
+			} else {
+				canvasContext.stroke(shape);
+			}
+		})
+	})
+}
+
 const commandsObjects = {
-	"highlight": new Highlighter(highliteButton, canvas, canvasContext),
+	"highlight": new Highlighter(highliteButton, canvas, canvasContext, deleteShape, SHAPES),
 	"erase": new Eraser(eraserButton, canvas, canvasContext),
-	"line": new Line(lineButton, canvas, canvasContext),
-	"pen": new Pen(penButton, canvas, canvasContext),
-	"ellipse": new Ellipse(ellipseButton, canvas, canvasContext)
+	"line": new Line(lineButton, canvas, canvasContext, deleteShape, SHAPES),
+	"pen": new Pen(penButton, canvas, canvasContext, SHAPES),
+	"ellipse": new Ellipse(ellipseButton, canvas, canvasContext, deleteShape, SHAPES)
 }
 
 function removeEventListeners() {
 	if (PREV_COMMAND === undefined) {
 		return
 	}
-	console.log(commandsObjects[PREV_COMMAND])
+
 	Object.getOwnPropertyNames(Object.getPrototypeOf(commandsObjects[PREV_COMMAND]))
 		.filter(prop_ => typeof commandsObjects[PREV_COMMAND][prop_] === 'function').forEach(method => {
-			console.log(typeof method)
 			if (method !== "constructor") {
 				canvas.removeEventListener(method.replace("_", ""), commandsObjects[PREV_COMMAND][method]);
 			}

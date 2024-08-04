@@ -1,14 +1,17 @@
 export class Pen {
 	/**
-	 *@param {HTMLButtonElement} elem 
-	 *@param {HTMLCanvasElement} canvas
-	 *@param {CanvasRenderingContext2D} canvasContext 
+		 * @param {HTMLButtonElement} button - The button element.
+		 * @param {HTMLCanvasElement} canvas - The canvas element.
+		 * @param {CanvasRenderingContext2D} canvasContext - The canvas rendering context.
+		 * @param {Object<string, [Path2D[], boolean]>} shapes - The shapes object.
 	 */
-	constructor(elem, canvas, canvasContext) {
+	constructor(elem, canvas, canvasContext, shapes) {
 		this.elem = elem;
 		this.canvas = canvas;
 		this.canvasRect = canvas.getBoundingClientRect();
 		this.canvasContext = canvasContext;
+		this.shapes = shapes;
+		this.line = undefined;
 
 		this.mousedown = this.mousedown.bind(this);
 		this.mousemove = this.mousemove.bind(this);
@@ -18,16 +21,19 @@ export class Pen {
 
 	mousedown(e) {
 		this.canvasContext.beginPath();
-		this.canvasContext.moveTo(e.clientX - this.canvasRect.left, e.clientY - this.canvasRect.top);
+		this.line = new Path2D();
+		this.line.moveTo(e.clientX - this.canvasRect.left, e.clientY - this.canvasRect.top);
 		this.canvas.removeEventListener("mousedown", this.mousedown);
 		this.canvas.addEventListener("mousemove", this.mousemove);
 		this.canvas.addEventListener("mouseup", this.mouseup);
 	}
 	mousemove(e) {
-		this.canvasContext.lineTo(e.clientX - this.canvasRect.left, e.clientY - this.canvasRect.top);
-		this.canvasContext.stroke();
+		this.line.lineTo(e.clientX - this.canvasRect.left, e.clientY - this.canvasRect.top);
+		this.canvasContext.stroke(this.line);
 	}
 	mouseup(_) {
+		this.shapes["pen"][0].push(this.line);
+		this.line = undefined;
 		this.canvas.removeEventListener("mouseup", this.mouseup);
 		this.canvas.removeEventListener("mousemove", this.mousemove);
 		this.canvas.addEventListener("mousedown", this.mousedown);

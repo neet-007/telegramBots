@@ -1,10 +1,12 @@
 export class Highlighter {
 	/**
-	 *@param {HTMLButtonElement} elem 
-	 *@param {HTMLCanvasElement} canvas
-	 *@param {CanvasRenderingContext2D} canvasContext 
+		 * @param {HTMLButtonElement} button - The button element.
+		 * @param {HTMLCanvasElement} canvas - The canvas element.
+		 * @param {CanvasRenderingContext2D} context - The canvas rendering context.
+		 * @param {function(string, number): void} deleteShapes - The function to delete a shape.
+		 * @param {Object<string, [Path2D[], boolean]>} shapes - The shapes object.
 	 */
-	constructor(elem, canvas, canvasContext) {
+	constructor(elem, canvas, canvasContext, deleteShapes, shapes) {
 		this.elem = elem;
 		this.canvas = canvas;
 		this.canvasRect = canvas.getBoundingClientRect();
@@ -12,22 +14,34 @@ export class Highlighter {
 		this.startCoordinates = { x: 0, y: 0 };
 		this.prevRectCoords = { x1: 0, y1: 0, x2: 0, y2: 0 };
 		this.rectsList = [];
+		this.shaps = shapes;
+		this.deleteShapes = deleteShapes;
+		this.index = -1;
 
 		this.mousemove = this.mousemove.bind(this);
 		this.mousedown = this.mousedown.bind(this);
-		this.mousedown_ = this.mousedown_.bind(this);
+		this.mousedup = this.mousedup.bind(this);
 	}
 
 
 	mousemove(e) {
+		//this.canvasContext.clearRect(this.prevRectCoords.x1, this.prevRectCoords.y1, this.prevRectCoords.x2, this.prevRectCoords.y2);
+
+		if (this.index > -1) {
+			this.deleteShapes("highlight", this.index);
+		}
+		this.index = this.shaps["highlight"][0].length;
+
 		this.canvasContext.globalAlpha = 0.2;
-		this.canvasContext.clearRect(this.prevRectCoords.x1, this.prevRectCoords.y1, this.prevRectCoords.x2, this.prevRectCoords.y2);
 		this.prevRectCoords = {
 			x1: this.startCoordinates.x, y1: this.startCoordinates.y,
 			x2: e.clientX - this.canvasRect.left - this.startCoordinates.x, y2: e.clientY - this.canvasRect.top - this.startCoordinates.y
 		};
-		this.canvasContext.fillRect(this.prevRectCoords.x1, this.prevRectCoords.y1,
+		const rect = new Path2D();
+		rect.rect(this.prevRectCoords.x1, this.prevRectCoords.y1,
 			this.prevRectCoords.x2, this.prevRectCoords.y2);
+		this.canvasContext.fill(rect);
+		this.shaps["highlight"][0].push(rect);
 		this.canvasContext.globalAlpha = 1.0;
 	}
 
@@ -36,18 +50,19 @@ export class Highlighter {
 		this.startCoordinates.y = e.clientY - this.canvasRect.top;
 		this.canvas.removeEventListener("mousedown", this.mousedown);
 		this.canvas.addEventListener("mousemove", this.mousemove);
-		this.canvas.addEventListener("mousedown", this.mousedown_);
+		this.canvas.addEventListener("mouseup", this.mousedup);
 	}
 
-	mousedown_(_) {
+	mousedup(_) {
 		this.rectsList.push({
 			x1: this.prevRectCoords.x1, y1: this.prevRectCoords.y1,
 			x2: this.prevRectCoords.x2, y2: this.prevRectCoords.y2
 		});
-		this.canvas.removeEventListener("mousedown", this.mousedown_);
+		this.canvas.removeEventListener("mouseup", this.mousedup);
 		this.canvas.removeEventListener("mousemove", this.mousemove);
 		this.canvas.addEventListener("mousedown", this.mousedown);
 		this.prevRectCoords = { x1: 0, y1: 0, x2: 0, y2: 0 };
+		this.index = -1
 	}
 
 }
