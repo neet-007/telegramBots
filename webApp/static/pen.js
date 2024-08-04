@@ -5,10 +5,10 @@ export class Pen {
 		 * @param {CanvasRenderingContext2D} canvasContext - The canvas rendering context.
 		 * @param {Object<string, [Path2D[], boolean]>} shapes - The shapes object.
 	 */
-	constructor(elem, canvas, canvasContext, shapes) {
+	constructor(elem, canvas, canvasContext, shapes, canvasRect) {
 		this.elem = elem;
 		this.canvas = canvas;
-		this.canvasRect = canvas.getBoundingClientRect();
+		this.canvasRect = canvasRect;
 		this.canvasContext = canvasContext;
 		this.shapes = shapes;
 		this.line = undefined;

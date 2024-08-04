@@ -6,6 +6,7 @@ import { Ellipse } from "./ellipse.js";
 
 const tele = window.Telegram
 const canvas = document.getElementById("main-canvas");
+const canvasRect = canvas.getBoundingClientRect();
 /**
  *@type(CanvasRenderingContext2D)
  * */
@@ -13,7 +14,10 @@ const canvasContext = canvas.getContext("2d");
 const backgroundDiv = document.getElementById("background-div");
 
 const buttonsContainer = document.getElementById("button-container");
-const menuControlButton = document.getElementById("menu-control");
+const buttonContainerRect = buttonsContainer.getBoundingClientRect();
+const menuControlContainer = document.getElementById("menu-control-container");
+const menuControlCollapseButton = document.getElementById("menu-control-collaps");
+const menuControlMoveButton = document.getElementById("menu-control-move");
 const highliteButton = document.getElementById("highlite-button");
 const eraserButton = document.getElementById("eraser-button");
 const lineButton = document.getElementById("line-button");
@@ -24,13 +28,15 @@ let IS_MENU_OPEN = true;
 let PREV_COMMAND = undefined;
 let CURR_COMMAND = undefined;
 const SHAPES = {
-	"highlight": [[], 0.2],
-	"line": [[], 1],
-	"pen": [[], 1],
-	"ellipse": [[], 0.2]
+	"highlight": [[], 0.2, []],
+	"erase": [[], -1, []],
+	"line": [[], 1, []],
+	"pen": [[], 1, []],
+	"ellipse": [[], 0.2, []]
 }
 
-menuControlButton.onclick = () => toggleMenu();
+menuControlMoveButton.addEventListener("mousedown", handleMoveMenuDown);
+menuControlCollapseButton.onclick = () => toggleMenu();
 highliteButton.onclick = () => toggleCommands("highlight");
 eraserButton.onclick = () => toggleCommands("erase");
 lineButton.onclick = () => toggleCommands("line");
@@ -44,12 +50,31 @@ backgroundDiv.style.width = "387px";
 backgroundDiv.style.height = "387px";
 backgroundDiv.style.pointerEvents = "none";
 
+function handleMoveMenuDown(_) {
+	menuControlMoveButton.removeEventListener("mousedown", handleMoveMenuDown);
+	document.addEventListener("mousemove", handleMoveMenuMove);
+	document.addEventListener("mouseup", handleMoveMenuUp);
+}
+
+function handleMoveMenuMove(e) {
+	buttonsContainer.style.left = (e.clientX - buttonContainerRect.width) + "px";
+	buttonsContainer.style.top = (e.clientY) + "px";
+}
+
+function handleMoveMenuUp(_) {
+	document.removeEventListener("mousemove", handleMoveMenuMove);
+	document.removeEventListener("mouseup", handleMoveMenuUp);
+	menuControlMoveButton.addEventListener("mousedown", handleMoveMenuDown);
+}
+
 function deleteShape(command, index) {
 	SHAPES[command][0].splice(index);
 	canvasContext.clearRect(0, 0, canvas.width, canvas.height);
 	Object.values(SHAPES).forEach(value => {
 		value[0].forEach(shape => {
-			if (value[1] < 1) {
+			if (value[1] === -1) {
+				canvasContext.clearRect(shape.x1, shape.y1, shape.x2, shape.y2);
+			} else if (value[1] < 1) {
 				canvasContext.globalAlpha = value[1];
 				canvasContext.fill(shape);
 				canvasContext.globalAlpha = 1.0;
@@ -61,11 +86,11 @@ function deleteShape(command, index) {
 }
 
 const commandsObjects = {
-	"highlight": new Highlighter(highliteButton, canvas, canvasContext, deleteShape, SHAPES),
-	"erase": new Eraser(eraserButton, canvas, canvasContext),
-	"line": new Line(lineButton, canvas, canvasContext, deleteShape, SHAPES),
-	"pen": new Pen(penButton, canvas, canvasContext, SHAPES),
-	"ellipse": new Ellipse(ellipseButton, canvas, canvasContext, deleteShape, SHAPES)
+	"highlight": new Highlighter(highliteButton, canvas, canvasContext, deleteShape, SHAPES, canvasRect),
+	"erase": new Eraser(eraserButton, canvas, canvasContext, SHAPES, canvasRect),
+	"line": new Line(lineButton, canvas, canvasContext, deleteShape, SHAPES, canvasRect),
+	"pen": new Pen(penButton, canvas, canvasContext, SHAPES, canvasRect),
+	"ellipse": new Ellipse(ellipseButton, canvas, canvasContext, deleteShape, SHAPES, canvasRect)
 }
 
 function removeEventListeners() {
@@ -83,7 +108,7 @@ function removeEventListeners() {
 
 function toggleMenu() {
 	if (IS_MENU_OPEN) {
-		buttonsContainer.style.maxHeight = `${menuControlButton.offsetHeight}px`;
+		buttonsContainer.style.maxHeight = `${menuControlContainer.offsetHeight}px`;
 		buttonsContainer.style.overflow = "hidden";
 		IS_MENU_OPEN = false;
 		return

@@ -6,10 +6,10 @@ export class Line {
 		 * @param {function(string, number): void} deleteShapes - The function to delete a shape.
 		 * @param {Object<string, [Path2D[], boolean]>} shapes - The shapes object.
 	 */
-	constructor(elem, canvas, canvasContext, deleteShapes, shapes) {
+	constructor(elem, canvas, canvasContext, deleteShapes, shapes, canvasRect) {
 		this.elem = elem;
 		this.canvas = canvas;
-		this.canvasRect = canvas.getBoundingClientRect();
+		this.canvasRect = canvasRect;
 		this.canvasContext = canvasContext;
 		this.deleteShapes = deleteShapes;
 		this.shapes = shapes;

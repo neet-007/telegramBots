@@ -22,3 +22,19 @@
 	flex-direction: column;
 	gap: 0.25rem;
 }
+
+.invisible-button {
+	background: none;
+	background-color: none;
+	padding: 0;
+	border: none;
+	color: white;
+}
+
+.flex {
+	display: flex;
+}
+
+.justify-content-between {
+	justify-content: space-between;
+}
