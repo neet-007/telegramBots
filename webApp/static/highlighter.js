@@ -5,9 +5,6 @@ export class Highlighter {
 	 *@param {CanvasRenderingContext2D} canvasContext 
 	 */
 	constructor(elem, canvas, canvasContext) {
-		console.log(elem)
-		console.log(canvas)
-		console.log(canvasContext)
 		this.elem = elem;
 		this.canvas = canvas;
 		this.canvasRect = canvas.getBoundingClientRect();
@@ -16,13 +13,13 @@ export class Highlighter {
 		this.prevRectCoords = { x1: 0, y1: 0, x2: 0, y2: 0 };
 		this.rectsList = [];
 
-		this.handleCanvasMouseMove = this.handleCanvasMouseMove.bind(this);
-		this.handleCanvasMouseDown = this.handleCanvasMouseDown.bind(this);
-		this.handleCanvasMouseDownEnd = this.handleCanvasMouseDownEnd.bind(this);
+		this.mousemove = this.mousemove.bind(this);
+		this.mousedown = this.mousedown.bind(this);
+		this.mousedown_ = this.mousedown_.bind(this);
 	}
 
 
-	handleCanvasMouseMove(e) {
+	mousemove(e) {
 		this.canvasContext.globalAlpha = 0.2;
 		this.canvasContext.clearRect(this.prevRectCoords.x1, this.prevRectCoords.y1, this.prevRectCoords.x2, this.prevRectCoords.y2);
 		this.prevRectCoords = {
@@ -34,23 +31,22 @@ export class Highlighter {
 		this.canvasContext.globalAlpha = 1.0;
 	}
 
-	handleCanvasMouseDown(e) {
-		console.log(this.canvas)
+	mousedown(e) {
 		this.startCoordinates.x = e.clientX - this.canvasRect.left;
 		this.startCoordinates.y = e.clientY - this.canvasRect.top;
-		this.canvas.removeEventListener("mousedown", this.handleCanvasMouseDown);
-		this.canvas.addEventListener("mousemove", this.handleCanvasMouseMove);
-		this.canvas.addEventListener("mousedown", this.handleCanvasMouseDownEnd);
+		this.canvas.removeEventListener("mousedown", this.mousedown);
+		this.canvas.addEventListener("mousemove", this.mousemove);
+		this.canvas.addEventListener("mousedown", this.mousedown_);
 	}
 
-	handleCanvasMouseDownEnd(_) {
+	mousedown_(_) {
 		this.rectsList.push({
 			x1: this.prevRectCoords.x1, y1: this.prevRectCoords.y1,
 			x2: this.prevRectCoords.x2, y2: this.prevRectCoords.y2
 		});
-		this.canvas.removeEventListener("mousedown", this.handleCanvasMouseDownEnd);
-		this.canvas.removeEventListener("mousemove", this.handleCanvasMouseMove);
-		this.canvas.addEventListener("mousedown", this.handleCanvasMouseDown);
+		this.canvas.removeEventListener("mousedown", this.mousedown_);
+		this.canvas.removeEventListener("mousemove", this.mousemove);
+		this.canvas.addEventListener("mousedown", this.mousedown);
 		this.prevRectCoords = { x1: 0, y1: 0, x2: 0, y2: 0 };
 	}
 

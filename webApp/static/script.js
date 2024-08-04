@@ -17,8 +17,10 @@ const penButton = document.getElementById("pen-button");
 const ellipseButton = document.getElementById("ellipse-button");
 
 let IS_MENU_OPEN = true;
+let PREV_COMMAND = undefined;
+let CURR_COMMAND = undefined;
 
-menuControlButton.onclick = () => toggleCommands("menu");
+menuControlButton.onclick = () => toggleMenu();
 highliteButton.onclick = () => toggleCommands("highlight");
 eraserButton.onclick = () => toggleCommands("erase");
 lineButton.onclick = () => toggleCommands("line");
@@ -39,47 +41,52 @@ const commandsObjects = {
 	"pen": new Pen(penButton, canvas, canvasContext)
 }
 
-function removeEventListeners(command) {
-	for (const prop in commandsObjects) {
-		if (prop === command) {
-			continue;
-		}
-		Object.getOwnPropertyNames(Object.getPrototypeOf(commandsObjects[prop]))
-			.filter(prop_ => typeof commandsObjects[prop][prop_] === 'function').forEach(method => {
-				if (method !== "constructor") {
-					canvas.removeEventListener("mouseup", commandsObjects[prop][method]);
-					canvas.removeEventListener("mousedown", commandsObjects[prop][method]);
-					canvas.removeEventListener("mousemove", commandsObjects[prop][method]);
-				}
-			})
+function removeEventListeners() {
+	if (PREV_COMMAND === undefined) {
+		return
 	}
+	console.log(commandsObjects[PREV_COMMAND])
+	Object.getOwnPropertyNames(Object.getPrototypeOf(commandsObjects[PREV_COMMAND]))
+		.filter(prop_ => typeof commandsObjects[PREV_COMMAND][prop_] === 'function').forEach(method => {
+			console.log(typeof method)
+			if (method !== "constructor") {
+				canvas.removeEventListener(method.replace("_", ""), commandsObjects[PREV_COMMAND][method]);
+			}
+		})
 }
 
+function toggleMenu() {
+	if (IS_MENU_OPEN) {
+		buttonsContainer.style.maxHeight = `${menuControlButton.offsetHeight}px`;
+		buttonsContainer.style.overflow = "hidden";
+		IS_MENU_OPEN = false;
+		return
+	}
+	buttonsContainer.removeAttribute("maxHeight")
+	buttonsContainer.style.overflow = "visible";
+	IS_MENU_OPEN = true;
+}
+
+
 function toggleCommands(command) {
+	PREV_COMMAND = CURR_COMMAND;
+	CURR_COMMAND = command;
 	if (command === "highlight") {
-		removeEventListeners(command);
-		canvas.addEventListener("mousedown", commandsObjects.highlight.handleCanvasMouseDown);
+		removeEventListeners();
+		canvas.addEventListener("mousedown", commandsObjects.highlight.mousedown);
 	} else if (command === "erase") {
-		removeEventListeners(command);
-		canvas.addEventListener("mousedown", commandsObjects.erase.handleCanvasMouseDownErase);
+		removeEventListeners();
+		canvas.addEventListener("mousedown", commandsObjects.erase.mousedown);
 	} else if (command === "line") {
-		removeEventListeners(command);
-		canvas.addEventListener("mousedown", commandsObjects.line.handleCanvasMouseDownLine);
+		removeEventListeners();
+		canvas.addEventListener("mousedown", commandsObjects.line.mousedown);
 	} else if (command === "pen") {
-		removeEventListeners(command);
-		canvas.addEventListener("mousedown", commandsObjects.pen.handleCanvasMouseDownPen);
+		removeEventListeners();
+		canvas.addEventListener("mousedown", commandsObjects.pen.mousedown);
 	} else if (command === "ellipse") {
 
 	} else {
-		if (IS_MENU_OPEN) {
-			buttonsContainer.style.maxHeight = `${menuControlButton.offsetHeight}px`;
-			buttonsContainer.style.overflow = "hidden";
-			IS_MENU_OPEN = false;
-			return
-		}
-		buttonsContainer.removeAttribute("maxHeight")
-		buttonsContainer.style.overflow = "visible";
-		IS_MENU_OPEN = true;
+		console.error("command is not supported");
 	}
 }
 

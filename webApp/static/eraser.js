@@ -10,24 +10,24 @@ export class Eraser {
 		this.canvasRect = canvas.getBoundingClientRect();
 		this.canvasContext = canvasContext;
 
-		this.handleCanvasMouseDownErase = this.handleCanvasMouseDownErase.bind(this);
-		this.handleCanvasMouseMoveErase = this.handleCanvasMouseMoveErase.bind(this);
-		this.handleCanvasMouseUpErase = this.handleCanvasMouseUpErase.bind(this);
+		this.mousedown = this.mousedown.bind(this);
+		this.mousemove = this.mousemove.bind(this);
+		this.mouseup = this.mouseup.bind(this);
 	}
 
 
-	handleCanvasMouseDownErase(e) {
+	mousedown(e) {
 		this.canvasContext.clearRect(e.clientX - this.canvasRect.left, e.clientY - this.canvasRect.top, 50, 50);
-		this.canvas.removeEventListener("mousedown", this.handleCanvasMouseDownErase);
-		this.canvas.addEventListener("mousemove", this.handleCanvasMouseMoveErase);
-		this.canvas.addEventListener("mouseup", this.handleCanvasMouseUpErase);
+		this.canvas.removeEventListener("mousedown", this.mousedown);
+		this.canvas.addEventListener("mousemove", this.mousemove);
+		this.canvas.addEventListener("mouseup", this.mouseup);
 	}
-	handleCanvasMouseMoveErase(e) {
+	mousemove(e) {
 		this.canvasContext.clearRect(e.clientX - this.canvasRect.left, e.clientY - this.canvasRect.top, 50, 50);
 	}
-	handleCanvasMouseUpErase(_) {
-		this.canvas.removeEventListener("mouseup", this.handleCanvasMouseUpErase);
-		this.canvas.removeEventListener("mousemove", this.handleCanvasMouseMoveErase);
-		this.canvas.addEventListener("mousedown", this.handleCanvasMouseDownErase);
+	mouseup(_) {
+		this.canvas.removeEventListener("mouseup", this.mouseup);
+		this.canvas.removeEventListener("mousemove", this.mousemove);
+		this.canvas.addEventListener("mousedown", this.mousedown);
 	}
 }
