@@ -29,10 +29,10 @@ let PREV_COMMAND = undefined;
 let CURR_COMMAND = undefined;
 const SHAPES = {
 	"highlight": [[], 0.2, []],
-	"erase": [[], -1, []],
 	"line": [[], 1, []],
 	"pen": [[], 1, []],
-	"ellipse": [[], 0.2, []]
+	"ellipse": [[], 0.2, []],
+	"erase": [[], -1, []],
 }
 
 menuControlMoveButton.addEventListener("mousedown", handleMoveMenuDown);
@@ -71,17 +71,27 @@ function deleteShape(command, index) {
 	SHAPES[command][0].splice(index);
 	canvasContext.clearRect(0, 0, canvas.width, canvas.height);
 	Object.values(SHAPES).forEach(value => {
-		value[0].forEach(shape => {
-			if (value[1] === -1) {
-				canvasContext.clearRect(shape.x1, shape.y1, shape.x2, shape.y2);
-			} else if (value[1] < 1) {
+		if (value[1] === 1) {
+			console.log("stroke")
+			value[0].forEach(shape => {
+				canvasContext.stroke(shape);
+			})
+		} else if (value[1] !== -1) {
+			console.log("filll")
+			value[0].forEach(shape => {
 				canvasContext.globalAlpha = value[1];
 				canvasContext.fill(shape);
 				canvasContext.globalAlpha = 1.0;
-			} else {
-				canvasContext.stroke(shape);
-			}
-		})
+
+			})
+		} else {
+			console.log("eraaaase")
+			value[0].forEach(shape => {
+				canvasContext.globalCompositeOperation = "destination-out";
+				canvasContext.fill(shape);
+				canvasContext.globalCompositeOperation = "source-over";
+			})
+		}
 	})
 }
 
@@ -139,14 +149,10 @@ function toggleCommands(command) {
 }
 
 tele.WebApp.ready();
-configureMainButton({ text: "do something", color: "#2045dc ", textColor: "#ffffff", onClick: sendBotData })
+configureMainButton({ text: "finish drawing", color: "#2045dc ", textColor: "#ffffff", onClick: sendBotData })
 tele.WebApp.MainButton.show();
 tele.WebApp.expand();
 
-const button = document.createElement("button");
-button.innerHTML = "getimage";
-button.onclick = sendBotData;
-buttonsContainer.appendChild(button)
 
 function sendBotData() {
 	const image = new Image();

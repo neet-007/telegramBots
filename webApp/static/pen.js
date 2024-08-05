@@ -1,9 +1,9 @@
 export class Pen {
 	/**
-		 * @param {HTMLButtonElement} button - The button element.
-		 * @param {HTMLCanvasElement} canvas - The canvas element.
-		 * @param {CanvasRenderingContext2D} canvasContext - The canvas rendering context.
-		 * @param {Object<string, [Path2D[], boolean]>} shapes - The shapes object.
+	 *@param {HTMLButtonElement} elem 
+	 *@param {HTMLCanvasElement} canvas
+	 *@param {CanvasRenderingContext2D} canvasContext 
+	 * @param {Object<string, [Path2D[], boolean]>} shapes - The shapes object.
 	 */
 	constructor(elem, canvas, canvasContext, shapes, canvasRect) {
 		this.elem = elem;
@@ -11,6 +11,7 @@ export class Pen {
 		this.canvasRect = canvasRect;
 		this.canvasContext = canvasContext;
 		this.shapes = shapes;
+		this.index = -1;
 		this.line = undefined;
 
 		this.mousedown = this.mousedown.bind(this);
@@ -33,6 +34,7 @@ export class Pen {
 	}
 	mouseup(_) {
 		this.shapes["pen"][0].push(this.line);
+		this.index = this.shapes["pen"].length;
 		this.line = undefined;
 		this.canvas.removeEventListener("mouseup", this.mouseup);
 		this.canvas.removeEventListener("mousemove", this.mousemove);
