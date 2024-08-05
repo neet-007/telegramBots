@@ -139,10 +139,51 @@ function toggleCommands(command) {
 }
 
 tele.WebApp.ready();
-configureMainButton({ text: "do something", color: "#2045dc ", textColor: "#ffffff", onClick: () => alert("hi") })
+configureMainButton({ text: "do something", color: "#2045dc ", textColor: "#ffffff", onClick: sendBotData })
 tele.WebApp.MainButton.show();
 tele.WebApp.expand();
 
+const button = document.createElement("button");
+button.innerHTML = "getimage";
+button.onclick = sendBotData;
+buttonsContainer.appendChild(button)
+
+function sendBotData() {
+	const image = new Image();
+	image.src = "/static/uploads/uploaded_img.jpg"
+	image.onload = () => {
+		// Create an output canvas
+		const outCanvas = document.createElement("canvas");
+		outCanvas.width = image.width;
+		outCanvas.height = image.height;
+
+		const outCanvasCtx = outCanvas.getContext("2d");
+
+		// Draw the background image onto the output canvas
+		outCanvasCtx.drawImage(image, 0, 0, outCanvas.width, outCanvas.height);
+
+		// Draw the original canvas content onto the output canvas
+		outCanvasCtx.drawImage(canvas, 0, 0);
+
+		outCanvas.toBlob(function(blob) {
+			const formData = new FormData();
+			formData.append('image', blob, 'image.jpeg'); // You can give the file a name
+
+			fetch('/upload', {
+				method: 'POST',
+				body: formData
+			})
+				.then(response => response.json())
+				.then(data => {
+					console.log('Success:', data);
+					tele.WebApp.sendData(JSON.stringify({ fileName: data.fileName }))
+				})
+				.catch(error => {
+					console.error('Error:', error);
+				});
+		}, 'image/JPEG'); // Specify the desired image format
+	};
+}
 
 function configureMainButton(options) {
 	tele.WebApp.MainButton.text = options.text;

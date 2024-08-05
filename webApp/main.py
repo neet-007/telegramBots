@@ -1,5 +1,5 @@
-from logging import debug
 import requests
+import base64
 import os
 from dotenv import load_dotenv
 import telegram
@@ -37,8 +37,10 @@ async def handle_web_data(update: telegram.Update, context:telegram.ext.ContextT
 
     data = json.loads(update.effective_message.web_app_data.data)
     print(data)
-
-    await update.message.reply_text(text=data)
+    if not "fileName" in data:
+        return await update.message.reply_text("coudlnot get image")
+    file_name = data["fileName"]
+    await update.message.reply_text(f"""download image from\n {WEBAPP_HOST}/download/{file_name}""")
 
 async def handle_photo(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.effective_attachment or context.user_data == None or not WEBAPP_HOST:
@@ -107,7 +109,7 @@ def main():
     application = telegram.ext.Application.builder().token(BOT_TOKEN).build()
     application.add_handler(telegram.ext.CommandHandler("start", start))
     application.add_handler(telegram.ext.MessageHandler(telegram.ext.filters.PHOTO, handle_photo))
-
+    application.add_handler(telegram.ext.MessageHandler(telegram.ext.filters.StatusUpdate.WEB_APP_DATA, handle_web_data))
     application.run_polling()
     
 
