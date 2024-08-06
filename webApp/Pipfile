@@ -9,6 +9,7 @@ python-telegram-bot = {extras = ["job-queue"], version = "*"}
 pillow = "*"
 flask = "*"
 requests = "*"
+numpy = "*"
 
 [dev-packages]
 

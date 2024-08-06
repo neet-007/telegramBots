@@ -84,7 +84,7 @@ function deleteShape(command, index) {
 				canvasContext.globalAlpha = 1.0;
 
 			})
-		} else {
+		} else if (command === "highlight" || command === "ellipse") {
 			console.log("eraaaase")
 			value[0].forEach(shape => {
 				canvasContext.globalCompositeOperation = "destination-out";

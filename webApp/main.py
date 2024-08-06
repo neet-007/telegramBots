@@ -1,5 +1,5 @@
 import requests
-import base64
+import numpy as np
 import os
 from dotenv import load_dotenv
 import telegram
@@ -101,6 +101,47 @@ async def send_photo_to_server(file: telegram.File):
     else:
         return False
 
+async def convert_image_to_ascii(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
+    if not update.message or not update.message.effective_attachment:
+        return
+
+    file = await update.message.effective_attachment[-1].get_file()
+    buffer = io.BytesIO()
+    await file.download_to_memory(out=buffer)
+    buffer.seek(0)
+
+    im = Image.open(buffer)
+
+    width, height = im.size    
+    im = im.resize((width // 8, height // 8), resample=Image.Resampling.BILINEAR)
+
+    im = im.resize((width, height), resample=Image.Resampling.NEAREST)
+
+    buffer.seek(0)
+    im = im.convert("L")
+
+    im_array = np.array(im)
+
+    """
+    step = 256 // 10
+    im_array = (im_array // step) * step
+    """
+    im_array = (np.floor(im_array * 10) / 10)
+    aw, ah = im_array.shape
+    new_arr = np.zeros((aw, ah), dtype=np.uint8)
+     
+    for y in range(ah):
+        for x in range(aw):
+            mod_x = ((x % 8) // 8) + im_array[y, x]
+            mod_x = np.clip(mod_x, 0, 255)
+            new_arr[y, x] = mod_x
+
+    im = Image.fromarray(new_arr)
+    im.save(fp=buffer, format="JPEG")
+    buffer.seek(0)
+
+    await update.message.reply_photo(buffer, filename="image.jpg")
+
 def main():
     if not BOT_TOKEN:
         print("xxxxxxxxxxxxxxx")
@@ -108,7 +149,7 @@ def main():
 
     application = telegram.ext.Application.builder().token(BOT_TOKEN).build()
     application.add_handler(telegram.ext.CommandHandler("start", start))
-    application.add_handler(telegram.ext.MessageHandler(telegram.ext.filters.PHOTO, handle_photo))
+    application.add_handler(telegram.ext.MessageHandler(telegram.ext.filters.PHOTO, convert_image_to_ascii))
     application.add_handler(telegram.ext.MessageHandler(telegram.ext.filters.StatusUpdate.WEB_APP_DATA, handle_web_data))
     application.run_polling()
     
