@@ -45,9 +45,27 @@ const eraserButton = document.getElementById("eraser");
 
 let command = undefined;
 
+const SHAPES = {
+	rect: [[], []],
+	ellipse: [[], []]
+}
+
+function deleteShapes(shape, index) {
+	canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+	SHAPES[shape][0].splice(index);
+	Object.values(SHAPES)
+		.forEach(shape => {
+			shape[0].forEach(path => {
+				canvasCtx.globalAlpha = 0.2;
+				canvasCtx.fill(path);
+				canvasCtx.globalAlpha = 1.0;
+			})
+		})
+}
+
 const COMMANDS = {
-	rect: new Rect(canvas, canvasCtx, canvasRect),
-	ellipse: new Ellipse(canvas, canvasCtx, canvasRect)
+	rect: new Rect(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes),
+	ellipse: new Ellipse(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes)
 };
 
 function removerCurrentEventListners(newCommand) {

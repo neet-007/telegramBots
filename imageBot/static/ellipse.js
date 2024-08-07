@@ -5,13 +5,16 @@ export class Ellipse {
 	 *@param {CanvasRenderingContext2D} canvasCtx 
 	 *@param {DOMRect} canvasRect 
 	 * */
-	constructor(canvas, canvasCtx, canvasRect) {
+	constructor(canvas, canvasCtx, canvasRect, shapes, deleteShapes) {
 		this.canvas = canvas;
 		this.canvasCtx = canvasCtx;
 		this.canvasRect = canvasRect;
 		this.center = { x: 0, y: 0 };
 		this.index = -1;
 		this.angle360 = (Math.PI + Math.PI) * (180 / Math.PI);
+		this.shapes = shapes;
+		this.deleteShapes = deleteShapes;
+		this.lastRadius = 0;
 
 		this.pointerup = this.pointerup.bind(this);
 		this.pointerdown = this.pointerdown.bind(this);
@@ -33,13 +36,20 @@ export class Ellipse {
 	 * */
 	pointermove(e) {
 		e.preventDefault();
+		if (this.index > -1) {
+			this.deleteShapes("ellipse", this.index);
+		}
+		this.index = this.shapes.ellipse[0].length;
+
 		this.canvasCtx.globalAlpha = 0.2;
 		const ellipse = new Path2D();
 		const radius = Math.sqrt(Math.pow(e.clientX - this.canvasRect.left - this.center.x, 2)
 			+ Math.pow(e.clientY - this.canvasRect.top - this.center.y, 2));
+		this.lastRadius = radius;
 		ellipse.arc(this.center.x, this.center.y, radius, 0, this.angle360);
 		this.canvasCtx.fill(ellipse);
 		this.canvasCtx.globalAlpha = 1.0;
+		this.shapes.ellipse[0].push(ellipse);
 	}
 	/**
 	 *@param {PointerEvent} e 
@@ -49,5 +59,8 @@ export class Ellipse {
 		this.canvas.removeEventListener("pointerup", this.pointerup);
 		this.canvas.removeEventListener("pointermove", this.pointermove);
 		this.canvas.addEventListener("pointerdown", this.pointerdown);
+		this.shapes.ellipse[1].push({ center: this.center, radius: this.lastRadius });
+		this.index = -1;
+		console.log(this.shapes)
 	}
 }
