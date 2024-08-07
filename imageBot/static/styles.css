@@ -1,0 +1,21 @@
+.main-canvas {
+	position: absolute;
+	left: 0;
+	top: 0;
+}
+
+.canvas-bg {
+	position: absolute;
+	left: 0;
+	top: 0;
+}
+
+.menu-container {}
+
+.button {
+	background: none;
+	background-color: none;
+	padding: 0.25rem;
+	cursor: pointer;
+	border: none;
+}
