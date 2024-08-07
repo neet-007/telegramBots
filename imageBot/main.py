@@ -175,12 +175,12 @@ async def handle_partial_filters_command(update: Update, context: ext.ContextTyp
     await update.message.reply_text("send the photo")
 
 async def handle_partial_filters(update: Update, context: ext.ContextTypes.DEFAULT_TYPE):
-    if not update.message or not update.message.effective_attachment or not WEB_APP_HOST:
+    if not update.message or not update.message.effective_attachment or not WEB_APP_HOST or context.user_data == None:
         return
 
     file = await update.message.effective_attachment[-1].get_file()
 
-    res = await send_photo_to_server(file)
+    res = await send_photo_to_server(file, context)
 
     if res:
         await update.message.reply_text("press the button to open the app to select the parts to modify",
@@ -189,9 +189,9 @@ async def handle_partial_filters(update: Update, context: ext.ContextTypes.DEFAU
     else:
         await update.message.reply_text("couldnt upload photo")
 
-async def send_photo_to_server(file: telegram.File):
-    if not WEB_APP_HOST or not file:
-        return False 
+async def send_photo_to_server(file: telegram.File, context: ext.ContextTypes.DEFAULT_TYPE):
+    if not WEB_APP_HOST or not file or context.user_data == None:
+        return False
 
     buffer = io.BytesIO()
     await file.download_to_memory(out=buffer)
@@ -206,18 +206,26 @@ async def send_photo_to_server(file: telegram.File):
     print(f"Original size: {w}x{h}")
 
     ui_width = 387
-    if w != ui_width:
-        h = int(h * (ui_width / w))
+    w_ratio = -1
+    h_ratio = -1
+    new_h = -1
+    if w >= ui_width:
+        w_ratio = w / ui_width
+        new_h = int(h * (ui_width / w))
+        h_ratio = h / new_h
         w = ui_width
+    else:
+        return False
 
-    im = im.resize((w, h))
+    buffer.seek(0)
+    values = buffer.getvalue()
+    im = im.resize((w, new_h))
     print(f"Resized size: {im.size}")
 
     buffer.seek(0)
     im.save(buffer, format="JPEG")
-
+    print("saved")
     buffer.seek(0)
-
     try:
         async with aiohttp.ClientSession() as session:
             data = aiohttp.FormData()
@@ -226,6 +234,9 @@ async def send_photo_to_server(file: telegram.File):
             async with session.post(url=f'{WEB_APP_HOST}/media', data=data) as response:
                 buffer.close()
                 if response.status == 200:
+                    context.user_data["w_ratio"] = w_ratio
+                    context.user_data["h_ratio"] = h_ratio
+                    context.user_data["image"] = values
                     return True
                 print(response.text)
                 return False
@@ -235,12 +246,64 @@ async def send_photo_to_server(file: telegram.File):
         return False
 
 async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_TYPE):
-    if not update.effective_message or not update.effective_message.web_app_data:
+    if not update.effective_message or not update.effective_message.web_app_data or not update.effective_chat or context.user_data == None:
         return
 
     data = json.loads(update.effective_message.web_app_data.data)
-    print(data)
+    if data == None:
+        return await context.bot.send_message(text="an error happend when you sent the data or you didnt specify any changes", chat_id=update.effective_chat.id)
 
+    w_ratio = context.user_data.get("w_ratio", None)
+    h_ratio = context.user_data.get("h_ratio", None)
+    buffer_data= context.user_data.get("image", None)
+
+    if not w_ratio or not h_ratio or not buffer_data:
+        return await context.bot.send_message(text="an error happend please try again", chat_id=update.effective_chat.id)
+
+    buffer = io.BytesIO()
+    buffer.write(buffer_data)
+    buffer.seek(0)
+    try:
+        im = Image.open(buffer)
+    except OSError:
+        buffer.close()
+        return await context.bot.send_message(text="an error happend please tty again", chat_id=update.effective_chat.id)
+
+    filters = {
+        "blur":ImageFilter.BLUR,
+        "sharpen":ImageFilter.SHARPEN,
+        "smooth":ImageFilter.SMOOTH,
+        "smooth_more":ImageFilter.SMOOTH_MORE
+    }
+
+    for key in data:
+        if key == "rect":
+            for f in data[key]:
+                box = (int(f["x1"] * w_ratio), int(f["y1"] * h_ratio), int(f["x2"] * w_ratio), int(f["y2"] * h_ratio))
+                print(box)
+                r = im.crop(box)
+                if f["mode"] in filters:
+                    if f["mode"] == "blur":
+                        for _ in range(10):
+                            r = r.filter(filters[f["mode"]])
+                    else:
+                        r.filter(filters[f["mode"]])
+                    im.paste(r, box)
+        elif key == "ellipse":
+            continue
+        else:
+            continue
+
+    buffer.seek(0)
+    try:
+        im.save(buffer, format="JPEG")
+    except:
+        buffer.close()
+        await context.bot.send_message(text="an error happend pleaser try again", chat_id=update.effective_chat.id)
+
+    buffer.seek(0)
+    await context.bot.send_document(document=buffer, filename="image.jpeg", chat_id=update.effective_chat.id)
+    buffer.close()
 
 def main():
     if not BOT_TOKEN:

@@ -129,6 +129,7 @@ image.onload = () => {
 		for (const key in SHAPES) {
 			data[key] = SHAPES[key][1];
 		}
+		console.log(data);
 		tele.sendData(JSON.stringify(data));
 		tele.close();
 	});

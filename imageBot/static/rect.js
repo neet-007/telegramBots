@@ -43,8 +43,8 @@ export class Rect {
 
 		this.canvasCtx.globalAlpha = 0.2;
 		const rect = new Path2D();
-		this.lastCoords = { x: e.clientX - this.canvasRect.left - this.start.x, y: e.clientY - this.canvasRect.top - this.start.y };
-		rect.rect(this.start.x, this.start.y, this.lastCoords.x, this.lastCoords.y);
+		this.lastCoords = { x: e.clientX - this.canvasRect.left, y: e.clientY - this.canvasRect.top };
+		rect.rect(this.start.x, this.start.y, this.lastCoords.x - this.start.x, this.lastCoords.y - this.start.y);
 		this.canvasCtx.fill(rect);
 		this.canvasCtx.globalAlpha = 1.0;
 		this.shapes.rect[0].push(rect);
