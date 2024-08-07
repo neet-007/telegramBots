@@ -1,4 +1,5 @@
 import os
+import aiohttp 
 import io
 import telegram
 from PIL import Image, ImageFilter
@@ -166,17 +167,80 @@ async def handle_filters(update: Update, context: ext.ContextTypes.DEFAULT_TYPE)
     buffer.close()
     context.user_data.clear()
 
-async def handle_partial_filters(update: Update, context: ext.ContextTypes.DEFAULT_TYPE):
-    if not update.message or not update.message.effective_attachment:
+async def handle_partial_filters_command(update: Update, context: ext.ContextTypes.DEFAULT_TYPE):
+    if not update.message:
         return
+
+    await update.message.reply_text("send the photo")
+
+async def handle_partial_filters(update: Update, context: ext.ContextTypes.DEFAULT_TYPE):
+    if not update.message or not update.message.effective_attachment or not WEB_APP_HOST:
+        return
+
+    file = await update.message.effective_attachment[-1].get_file()
+
+    res = await send_photo_to_server(file)
+
+    if res:
+        await update.message.reply_text("press the button to open the app to select the parts to modify",
+                                        reply_markup=telegram.ReplyKeyboardMarkup.from_button(telegram.KeyboardButton(text="open the app", 
+                                                                                                                    web_app=telegram.WebAppInfo(url=WEB_APP_HOST))))
+    else:
+        await update.message.reply_text("couldnt upload photo")
+
+async def send_photo_to_server(file: telegram.File):
+    if not WEB_APP_HOST or not file:
+        return False 
+
+    buffer = io.BytesIO()
+    await file.download_to_memory(out=buffer)
+    
+    try:
+        im = Image.open(buffer)
+    except OSError:
+        print("didnt open message")
+        return False
+
+    w, h = im.size
+    print(f"Original size: {w}x{h}")
+
+    ui_width = 387
+    if w != ui_width:
+        h = int(h * (ui_width / w))
+        w = ui_width
+
+    im = im.resize((w, h))
+    print(f"Resized size: {im.size}")
+
+    buffer.seek(0)
+    im.save(buffer, format="JPEG")
+
+    buffer.seek(0)
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            data = aiohttp.FormData()
+            data.add_field("file", buffer, filename="image.jpeg", content_type="image/jpeg")
+            
+            async with session.post(url=f'{WEB_APP_HOST}/media', data=data) as response:
+                buffer.close()
+                if response.status == 200:
+                    return True
+                print(response.text)
+                return False
+    except Exception as e:
+        print("error", e)
+        buffer.close()
+        return False
+
 
 def main():
     if not BOT_TOKEN:
         return
 
     application = ext.Application.builder().token(BOT_TOKEN).build()
-    application.add_handler(CommandHandler("filter", handle_filters_message))
-    application.add_handler(MessageHandler(ext.filters.ATTACHMENT, handle_filters))
+    application.add_handler(CommandHandler("partial", handle_partial_filters_command))
+    application.add_handler(MessageHandler(ext.filters.ATTACHMENT, handle_partial_filters))
 
     application.run_polling()
 
