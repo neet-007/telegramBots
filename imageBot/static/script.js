@@ -27,13 +27,9 @@ const canvasBg = document.getElementById("canvas-bg");
 */
 const menuContainer = document.getElementById("menu-container");
 /**
- * @type {HTMLButtonElement}
- */
-const rectButton = document.getElementById("rect");
-/**
- * @type {HTMLButtonElement}
- */
-const ellipseButton = document.getElementById("ellipse");
+ * @type {HTMLDivElement}
+*/
+const modesContainer = document.getElementById("modes-container");
 /**
  * @type {HTMLButtonElement}
  */
@@ -44,6 +40,7 @@ const penButton = document.getElementById("pen");
 const eraserButton = document.getElementById("eraser");
 
 let command = undefined;
+let mode = undefined;
 
 const SHAPES = {
 	rect: [[], []],
@@ -63,9 +60,13 @@ function deleteShapes(shape, index) {
 		})
 }
 
+function addShape(shape, coords) {
+	SHAPES[shape][1].push({ ...coords, mode });
+}
+
 const COMMANDS = {
-	rect: new Rect(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes),
-	ellipse: new Ellipse(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes)
+	rect: new Rect(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
+	ellipse: new Ellipse(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape)
 };
 
 function removerCurrentEventListners(newCommand) {
@@ -93,6 +94,24 @@ image.onload = () => {
 	canvasBg.style.backgroundImage = `url(static/uploads/uploaded_img.jpeg)`;
 	menuContainer.style.marginTop = `${canvas.height}px`;
 
+	for (let i = 0; i < menuContainer.children.length; i++) {
+		menuContainer.children[i].disabled = true;
+		menuContainer.children[i].onpointerdown = () => {
+			removerCurrentEventListners(menuContainer.children[i].id);
+			canvas.addEventListener("pointerdown", COMMANDS[menuContainer.children[i].id].pointerdown);
+		}
+	}
+	for (let i = 0; i < modesContainer.children.length; i++) {
+		modesContainer.children[i].onpointerdown = () => {
+			if (mode === undefined) {
+				for (let i = 0; i < menuContainer.children.length; i++) {
+					menuContainer.children[i].disabled = false;
+				}
+			}
+			mode = modesContainer.children[i].id;
+		}
+	}
+	/*
 	rectButton.onpointerdown = () => {
 		removerCurrentEventListners("rect")
 		canvas.addEventListener("pointerdown", COMMANDS.rect.pointerdown)
@@ -101,8 +120,17 @@ image.onload = () => {
 		removerCurrentEventListners("ellipse")
 		canvas.addEventListener("pointerdown", COMMANDS.ellipse.pointerdown)
 	};
-
+	*/
 	tele.ready();
 	tele.expand();
+	tele.MainButton.setText('make changes').show().onClick(function() {
+
+		const data = {};
+		for (const key in SHAPES) {
+			data[key] = SHAPES[key][1];
+		}
+		tele.sendData(JSON.stringify(data));
+		tele.close();
+	});
 };
 

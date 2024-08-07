@@ -1,3 +1,4 @@
+import json
 import os
 import aiohttp 
 import io
@@ -233,6 +234,13 @@ async def send_photo_to_server(file: telegram.File):
         buffer.close()
         return False
 
+async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_TYPE):
+    if not update.effective_message or not update.effective_message.web_app_data:
+        return
+
+    data = json.loads(update.effective_message.web_app_data.data)
+    print(data)
+
 
 def main():
     if not BOT_TOKEN:
@@ -241,6 +249,7 @@ def main():
     application = ext.Application.builder().token(BOT_TOKEN).build()
     application.add_handler(CommandHandler("partial", handle_partial_filters_command))
     application.add_handler(MessageHandler(ext.filters.ATTACHMENT, handle_partial_filters))
+    application.add_handler(MessageHandler(ext.filters.StatusUpdate.WEB_APP_DATA, handle_web_app_data))
 
     application.run_polling()
 

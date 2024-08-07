@@ -5,7 +5,7 @@ export class Ellipse {
 	 *@param {CanvasRenderingContext2D} canvasCtx 
 	 *@param {DOMRect} canvasRect 
 	 * */
-	constructor(canvas, canvasCtx, canvasRect, shapes, deleteShapes) {
+	constructor(canvas, canvasCtx, canvasRect, shapes, deleteShapes, addShape) {
 		this.canvas = canvas;
 		this.canvasCtx = canvasCtx;
 		this.canvasRect = canvasRect;
@@ -14,6 +14,7 @@ export class Ellipse {
 		this.angle360 = (Math.PI + Math.PI) * (180 / Math.PI);
 		this.shapes = shapes;
 		this.deleteShapes = deleteShapes;
+		this.addShape = addShape;
 		this.lastRadius = 0;
 
 		this.pointerup = this.pointerup.bind(this);
@@ -59,7 +60,7 @@ export class Ellipse {
 		this.canvas.removeEventListener("pointerup", this.pointerup);
 		this.canvas.removeEventListener("pointermove", this.pointermove);
 		this.canvas.addEventListener("pointerdown", this.pointerdown);
-		this.shapes.ellipse[1].push({ center: this.center, radius: this.lastRadius });
+		this.addShape("ellipse", { center: this.center, radius: this.lastRadius });
 		this.index = -1;
 		console.log(this.shapes)
 	}

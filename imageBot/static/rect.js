@@ -5,7 +5,7 @@ export class Rect {
 	 *@param {CanvasRenderingContext2D} canvasCtx 
 	 *@param {DOMRect} canvasRect 
 	 * */
-	constructor(canvas, canvasCtx, canvasRect, shapes, deleteShapes) {
+	constructor(canvas, canvasCtx, canvasRect, shapes, deleteShapes, addShape) {
 		this.canvas = canvas;
 		this.canvasCtx = canvasCtx;
 		this.canvasRect = canvasRect;
@@ -13,6 +13,7 @@ export class Rect {
 		this.index = -1;
 		this.shapes = shapes;
 		this.deleteShapes = deleteShapes;
+		this.addShape = addShape;
 		this.lastCoords = { x: 0, y: 0 };
 
 		this.pointerup = this.pointerup.bind(this);
@@ -56,7 +57,7 @@ export class Rect {
 		this.canvas.removeEventListener("pointerup", this.pointerup);
 		this.canvas.removeEventListener("pointermove", this.pointermove);
 		this.canvas.addEventListener("pointerdown", this.pointerdown);
-		this.shapes.rect[1].push({ x1: this.start.x, y1: this.start.y, x2: this.lastCoords.x, y2: this.lastCoords.y });
+		this.addShape("rect", { x1: this.start.x, y1: this.start.y, x2: this.lastCoords.x, y2: this.lastCoords.y });
 		this.index = -1;
 		console.log(this.shapes)
 	}
