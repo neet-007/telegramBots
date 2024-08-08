@@ -1,3 +1,10 @@
+:root {
+	--clr-primary: #023047;
+	--clr-secondary: #778da9;
+	--clr-success: #a3b18a;
+	--clr-warning: #d62828;
+}
+
 .main-canvas {
 	position: absolute;
 	left: 0;
@@ -12,14 +19,40 @@
 
 .commands-container {}
 
-.menu-container {}
+.menu-container {
+	background-color: var(--clr-primary);
+	color: white;
+	display: flex;
+	justify-content: space-between;
+	padding: 0.5rem;
+}
 
-.modes-container {}
+.modes-container {
+	background-color: var(--clr-primary);
+	color: white;
+	display: flex;
+	justify-content: space-between;
+	padding: 0.5rem;
+}
 
 .button {
 	background: none;
-	background-color: none;
-	padding: 0.25rem;
+	background-color: var(--clr-secondary);
+	color: white;
+	padding: 0.50rem;
 	cursor: pointer;
 	border: none;
+	border-radius: 0.25rem;
+}
+
+.button:disabled {
+	background-color: grey;
+	opacity: 0.5;
+	color: black;
+	cursor: not-allowed;
+}
+
+.button[data-state="active"] {
+	background-color: red;
+	cursor: default;
 }

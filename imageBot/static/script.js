@@ -36,8 +36,8 @@ const modesContainer = document.getElementById("modes-container");
  */
 const penButton = document.getElementById("pen");
 
-let command = undefined;
-let mode = undefined;
+let command = [undefined, -1];
+let mode = [undefined, -1];
 
 const SHAPES = {
 	rect: [[], []],
@@ -69,19 +69,20 @@ const COMMANDS = {
 	eraser: new Eraser(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes)
 };
 
-function removerCurrentEventListners(newCommand) {
-	if (command !== undefined) {
-		Object.getOwnPropertyNames(Object.getPrototypeOf(COMMANDS[command]))
-			.filter(prop => typeof (COMMANDS[command][prop] === "function"))
+function removerCurrentEventListners(newCommand, index) {
+	if (command[0] !== undefined) {
+		Object.getOwnPropertyNames(Object.getPrototypeOf(COMMANDS[command[0]]))
+			.filter(prop => typeof (COMMANDS[command[0]][prop] === "function"))
 			.forEach(method => {
 				if (method !== 'constructor') {
-					canvas.removeEventListener(method, COMMANDS[command][method])
+					canvas.removeEventListener(method, COMMANDS[command[0]][method])
 				}
 			})
 	}
 	if (newCommand !== "cursor") {
-		command = newCommand;
+		command[0] = newCommand;
 	}
+	command[1] = index;
 }
 
 const image = new Image()
@@ -99,7 +100,15 @@ image.onload = () => {
 	for (let i = 0; i < menuContainer.children.length; i++) {
 		menuContainer.children[i].disabled = true;
 		menuContainer.children[i].onpointerdown = () => {
-			removerCurrentEventListners(menuContainer.children[i].id);
+			if (menuContainer.children[i].disabled) {
+				return
+			}
+			menuContainer.children[i].setAttribute("data-state", "active");
+			if (command[1] > -1) {
+				menuContainer.children[command[1]].setAttribute("data-state", "not");
+			}
+
+			removerCurrentEventListners(menuContainer.children[i].id, i);
 			if (menuContainer.children[i].id === "eraser") {
 				canvas.style.cursor = "pointer";
 			} else if (menuContainer.children[i].id === "cursor") {
@@ -113,12 +122,18 @@ image.onload = () => {
 	}
 	for (let i = 0; i < modesContainer.children.length; i++) {
 		modesContainer.children[i].onpointerdown = () => {
-			if (mode === undefined) {
+			if (mode[0] === undefined) {
 				for (let i = 0; i < menuContainer.children.length; i++) {
 					menuContainer.children[i].disabled = false;
 				}
 			}
-			mode = modesContainer.children[i].id;
+
+			modesContainer.children[i].setAttribute("data-state", "active");
+			if (mode[1] > -1) {
+				modesContainer.children[mode[1]].setAttribute("data-state", "not");
+			}
+			mode[0] = modesContainer.children[i].id;
+			mode[1] = i;
 		}
 	}
 
