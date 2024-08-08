@@ -1,5 +1,6 @@
 import { Ellipse } from "./ellipse.js";
 import { Eraser } from "./eraser.js";
+import { Pen } from "./pen.js";
 import { Rect } from "./rect.js";
 
 const loader = document.createElement("h1");
@@ -41,7 +42,8 @@ let mode = [undefined, -1];
 
 const SHAPES = {
 	rect: [[], []],
-	ellipse: [[], []]
+	ellipse: [[], []],
+	pen: [[], []]
 }
 
 function deleteShapes(shape, index) {
@@ -66,6 +68,7 @@ function addShape(shape, coords) {
 const COMMANDS = {
 	rect: new Rect(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
 	ellipse: new Ellipse(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
+	pen: new Pen(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
 	eraser: new Eraser(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes)
 };
 
