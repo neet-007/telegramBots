@@ -35,10 +35,6 @@ const modesContainer = document.getElementById("modes-container");
  * @type {HTMLButtonElement}
  */
 const penButton = document.getElementById("pen");
-/**
- * @type {HTMLButtonElement}
- */
-const eraserButton = document.getElementById("eraser");
 
 let command = undefined;
 let mode = undefined;
@@ -83,7 +79,9 @@ function removerCurrentEventListners(newCommand) {
 				}
 			})
 	}
-	command = newCommand;
+	if (newCommand !== "cursor") {
+		command = newCommand;
+	}
 }
 
 const image = new Image()
@@ -102,6 +100,14 @@ image.onload = () => {
 		menuContainer.children[i].disabled = true;
 		menuContainer.children[i].onpointerdown = () => {
 			removerCurrentEventListners(menuContainer.children[i].id);
+			if (menuContainer.children[i].id === "eraser") {
+				canvas.style.cursor = "pointer";
+			} else if (menuContainer.children[i].id === "cursor") {
+				canvas.style.cursor = "default";
+				return
+			} else {
+				canvas.style.cursor = "crosshair";
+			}
 			canvas.addEventListener("pointerdown", COMMANDS[menuContainer.children[i].id].pointerdown);
 		}
 	}
@@ -115,16 +121,7 @@ image.onload = () => {
 			mode = modesContainer.children[i].id;
 		}
 	}
-	/*
-	rectButton.onpointerdown = () => {
-		removerCurrentEventListners("rect")
-		canvas.addEventListener("pointerdown", COMMANDS.rect.pointerdown)
-	};
-	ellipseButton.onpointerdown = () => {
-		removerCurrentEventListners("ellipse")
-		canvas.addEventListener("pointerdown", COMMANDS.ellipse.pointerdown)
-	};
-	*/
+
 	tele.ready();
 	tele.expand();
 	tele.MainButton.setText('make changes').show().onClick(function() {

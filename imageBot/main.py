@@ -4,7 +4,7 @@ import aiohttp
 import io
 import telegram
 from PIL import Image, ImageFilter, ImageDraw
-from telegram import Update, ext
+from telegram import Update, constants, ext
 from dotenv import load_dotenv
 from telegram.ext._handlers.commandhandler import CommandHandler
 from telegram.ext._handlers.messagehandler import MessageHandler
@@ -172,13 +172,13 @@ async def handle_partial_filters_command(update: Update, context: ext.ContextTyp
     if not update.message:
         return
 
-    await update.message.reply_text("send the photo")
+    await update.message.reply_text("send the photo as document")
 
 async def handle_partial_filters(update: Update, context: ext.ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.effective_attachment or not WEB_APP_HOST or context.user_data == None:
         return
 
-    file = await update.message.effective_attachment[-1].get_file()
+    file = await update.message.effective_attachment.get_file()
 
     res = await send_photo_to_server(file, context)
 
@@ -199,10 +199,12 @@ async def send_photo_to_server(file: telegram.File, context: ext.ContextTypes.DE
     try:
         im = Image.open(buffer)
     except OSError:
+        buffer.close()
         print("didnt open message")
         return False
 
     w, h = im.size
+    format = im.format
     print(f"Original size: {w}x{h}")
 
     ui_width = 387
@@ -215,34 +217,45 @@ async def send_photo_to_server(file: telegram.File, context: ext.ContextTypes.DE
         h_ratio = h / new_h
         w = ui_width
     else:
+        im.close()
+        buffer.close()
         return False
 
     buffer.seek(0)
     values = buffer.getvalue()
-    im = im.resize((w, new_h))
-    print(f"Resized size: {im.size}")
 
-    buffer.seek(0)
-    im.save(buffer, format="JPEG")
+    outBuffer = io.BytesIO()
+    im2 = im.resize((w, new_h))
+    print(f"Resized size: {im2.size}")
+
+    outBuffer.seek(0)
+    im2 = im2.convert("RGB")
+    im2.save(outBuffer, format="JPEG")
     print("saved")
-    buffer.seek(0)
+    outBuffer.seek(0)
     try:
         async with aiohttp.ClientSession() as session:
             data = aiohttp.FormData()
-            data.add_field("file", buffer, filename="image.jpeg", content_type="image/jpeg")
+            data.add_field("file", outBuffer, filename="image.jpeg", content_type="image/jpeg")
             
             async with session.post(url=f'{WEB_APP_HOST}/media', data=data) as response:
                 buffer.close()
+                outBuffer.close()
+                im.close()
                 if response.status == 200:
                     context.user_data["w_ratio"] = w_ratio
                     context.user_data["h_ratio"] = h_ratio
                     context.user_data["image"] = values
+                    context.user_data["format"] = format
                     return True
                 print(response.text)
                 return False
     except Exception as e:
         print("error", e)
+        im.close()
+        outBuffer.close()
         buffer.close()
+        context.user_data.clear()
         return False
 
 async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_TYPE):
@@ -251,13 +264,16 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
 
     data = json.loads(update.effective_message.web_app_data.data)
     if data == None:
+        context.user_data.clear();
         return await context.bot.send_message(text="an error happend when you sent the data or you didnt specify any changes", chat_id=update.effective_chat.id)
 
     w_ratio = context.user_data.get("w_ratio", None)
     h_ratio = context.user_data.get("h_ratio", None)
     buffer_data= context.user_data.get("image", None)
+    format = context.user_data.get("format", "JPEG")
 
     if not w_ratio or not h_ratio or not buffer_data:
+        context.user_data.clear()
         return await context.bot.send_message(text="an error happend please try again", chat_id=update.effective_chat.id)
 
     buffer = io.BytesIO()
@@ -266,6 +282,7 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
     try:
         im = Image.open(buffer)
     except OSError:
+        context.user_data.clear()
         buffer.close()
         return await context.bot.send_message(text="an error happend please tty again", chat_id=update.effective_chat.id)
 
@@ -299,6 +316,8 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
                     elif mode == "crop":
                         im = r
                     else:
+                        context.user_data.clear();
+                        buffer.close()
                         return await context.bot.send_message(text="the filter is not supported", chat_id=update.effective_chat.id)
         elif key == "ellipse":
             im.convert("RGBA")
@@ -336,19 +355,28 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
                     elif mode == "crop":
                         im = r
                     else:
+                        context.user_data.clear()
+                        buffer.close()
                         return await context.bot.send_message(text="the filter is not supported", chat_id=update.effective_chat.id)
         else:
             continue
 
     buffer.seek(0)
     try:
-        im.save(buffer, format="PNG")
+        print("format:",format)
+        if format == "JPEG":
+            im.convert("RGB")
+            im.save(buffer, format="JPEG")
+        else:
+            im.save(buffer, format=format)
     except:
+        context.user_data.clear();
         buffer.close()
         await context.bot.send_message(text="an error happend pleaser try again", chat_id=update.effective_chat.id)
 
     buffer.seek(0)
-    await context.bot.send_document(document=buffer, filename="image.jpeg", chat_id=update.effective_chat.id)
+    await context.bot.send_document(document=buffer, filename=f"image.{format.lower()}", chat_id=update.effective_chat.id)
+    context.user_data.clear()
     buffer.close()
 
 def main():
