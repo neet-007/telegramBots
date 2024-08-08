@@ -3,7 +3,7 @@ import os
 import aiohttp 
 import io
 import telegram
-from PIL import Image, ImageFilter
+from PIL import Image, ImageFilter, ImageDraw
 from telegram import Update, ext
 from dotenv import load_dotenv
 from telegram.ext._handlers.commandhandler import CommandHandler
@@ -279,24 +279,70 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
     for key in data:
         if key == "rect":
             for f in data[key]:
+                mode = f["mode"]
                 box = (int(f["x1"] * w_ratio), int(f["y1"] * h_ratio), int(f["x2"] * w_ratio), int(f["y2"] * h_ratio))
                 print(box)
                 r = im.crop(box)
-                if f["mode"] in filters:
-                    if f["mode"] == "blur":
+                if mode in filters:
+                    if mode == "blur":
                         for _ in range(10):
-                            r = r.filter(filters[f["mode"]])
+                            r = r.filter(filters[mode])
                     else:
-                        r.filter(filters[f["mode"]])
+                        r.filter(filters[mode])
                     im.paste(r, box)
+                else:
+                    if mode == "baw":
+                        r = r.convert("L")
+                        im.paste(r, box)
+                    elif mode == "rotate":
+                        continue
+                    elif mode == "crop":
+                        im = r
+                    else:
+                        return await context.bot.send_message(text="the filter is not supported", chat_id=update.effective_chat.id)
         elif key == "ellipse":
-            continue
+            im.convert("RGBA")
+            for f in data[key]:
+                mask = Image.new("L", im.size, 0)
+                mask = mask.filter(ImageFilter.GaussianBlur(2))
+                draw = ImageDraw.Draw(mask)
+                center = f["center"]
+                radius = f["radius"]
+                mode = f["mode"]
+                box = (
+                    int((center["x"] - radius) * w_ratio),
+                    int((center["y"] - radius) * h_ratio),
+                    int((center["x"] + radius) * w_ratio),
+                    int((center["y"] + radius) * h_ratio)
+                )
+                draw.ellipse(box, fill=255, width=0)
+                r = Image.new("RGBA", im.size, (0,0,0,0))
+                r.paste(im, mask=mask)
+                r = r.crop(box)
+
+                if mode in filters:
+                    if mode == "blur":
+                        for _ in range(10):
+                            r = r.filter(filters[mode])
+                    else:
+                        r.filter(filters[mode])
+                    im.paste(r, box, mask=r)
+                else:
+                    if mode == "baw":
+                        r = r.convert("L")
+                        im.paste(r, box, mask=r)
+                    elif mode == "rotate":
+                        continue
+                    elif mode == "crop":
+                        im = r
+                    else:
+                        return await context.bot.send_message(text="the filter is not supported", chat_id=update.effective_chat.id)
         else:
             continue
 
     buffer.seek(0)
     try:
-        im.save(buffer, format="JPEG")
+        im.save(buffer, format="PNG")
     except:
         buffer.close()
         await context.bot.send_message(text="an error happend pleaser try again", chat_id=update.effective_chat.id)
