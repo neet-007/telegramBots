@@ -1,4 +1,5 @@
 import { Ellipse } from "./ellipse.js";
+import { Eraser } from "./eraser.js";
 import { Rect } from "./rect.js";
 
 const loader = document.createElement("h1");
@@ -49,10 +50,12 @@ const SHAPES = {
 
 function deleteShapes(shape, index) {
 	canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
-	SHAPES[shape][0].splice(index);
+	if (index > -1) {
+		SHAPES[shape][0].splice(index);
+	}
 	Object.values(SHAPES)
-		.forEach(shape => {
-			shape[0].forEach(path => {
+		.forEach(shape_ => {
+			shape_[0].forEach(path => {
 				canvasCtx.globalAlpha = 0.2;
 				canvasCtx.fill(path);
 				canvasCtx.globalAlpha = 1.0;
@@ -66,7 +69,8 @@ function addShape(shape, coords) {
 
 const COMMANDS = {
 	rect: new Rect(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
-	ellipse: new Ellipse(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape)
+	ellipse: new Ellipse(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
+	eraser: new Eraser(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes)
 };
 
 function removerCurrentEventListners(newCommand) {
