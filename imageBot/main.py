@@ -406,14 +406,15 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
     try:
         print("format:",format)
         if format == "JPEG":
-            im.convert("RGB")
+            im = im.convert("RGB")
             im.save(buffer, format="JPEG")
         else:
             im.save(buffer, format=format)
-    except:
+    except Exception as e:
         context.user_data.clear();
         buffer.close()
-        await context.bot.send_message(text="an error happend pleaser try again", chat_id=update.effective_chat.id)
+        print(e)
+        return await context.bot.send_message(text="an error happend pleaser try again", chat_id=update.effective_chat.id)
 
     buffer.seek(0)
     await context.bot.send_document(document=buffer, filename=f"image.{format.lower()}", chat_id=update.effective_chat.id)
