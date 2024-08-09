@@ -42,9 +42,7 @@ export class Pen {
 		const coords = { x: e.clientX - this.canvasRect.left, y: e.clientY - this.canvasRect.top }
 		this.path.lineTo(coords.x, coords.y);
 		this.stackTrace.push(coords);
-		this.canvasCtx.lineWidth = 0.2;
 		this.canvasCtx.stroke(this.path);
-		this.canvasCtx.lineWidth = 1.0;
 	}
 
 	/**
@@ -59,7 +57,7 @@ export class Pen {
 		let condition = false;
 		for (let i = 0; i < this.stackTrace.length; i++) {
 			if (i === this.stackTrace.length - 1) {
-				if (!this.canvasCtx.isPointInPath(newPath, this.stackTrace[i].x, this.stackTrace[i].y)) {
+				if (this.canvasCtx.isPointInStroke(newPath, this.stackTrace[i].x, this.stackTrace[i].y)) {
 					condition = true;
 					break;
 				}

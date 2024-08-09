@@ -296,7 +296,7 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
     for key in data:
         if key == "rect":
             for f in data[key]:
-                mode = f["mode"]
+                mode = f["mode"][0]
                 box = (int(f["x1"] * w_ratio), int(f["y1"] * h_ratio), int(f["x2"] * w_ratio), int(f["y2"] * h_ratio))
                 print(box)
                 r = im.crop(box)
@@ -319,7 +319,7 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
                         context.user_data.clear();
                         buffer.close()
                         return await context.bot.send_message(text="the filter is not supported", chat_id=update.effective_chat.id)
-        elif key == "ellipse":
+        elif key == "circle":
             im.convert("RGBA")
             for f in data[key]:
                 mask = Image.new("L", im.size, 0)
@@ -327,7 +327,7 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
                 draw = ImageDraw.Draw(mask)
                 center = f["center"]
                 radius = f["radius"]
-                mode = f["mode"]
+                mode = f["mode"][0]
                 box = (
                     int((center["x"] - radius) * w_ratio),
                     int((center["y"] - radius) * h_ratio),

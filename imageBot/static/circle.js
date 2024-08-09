@@ -1,4 +1,4 @@
-export class Eliipse {
+export class Circle {
 
 	/**
 	 *@param {HTMLCanvasElement} canvas 
@@ -9,15 +9,13 @@ export class Eliipse {
 		this.canvas = canvas;
 		this.canvasCtx = canvasCtx;
 		this.canvasRect = canvasRect;
-		this.start = { x: 0, y: 0 };
+		this.center = { x: 0, y: 0 };
 		this.index = -1;
 		this.angle360 = (Math.PI + Math.PI) * (180 / Math.PI);
 		this.shapes = shapes;
 		this.deleteShapes = deleteShapes;
 		this.addShape = addShape;
-		this.lastCenter = { x: 0, y: 0 };
-		this.lastRadiusX = 0;
-		this.lastRadiusY = 0;
+		this.lastRadius = 0;
 
 		this.pointerup = this.pointerup.bind(this);
 		this.pointerdown = this.pointerdown.bind(this);
@@ -32,7 +30,7 @@ export class Eliipse {
 		this.canvas.removeEventListener("pointerdown", this.pointerdown);
 		this.canvas.addEventListener("pointermove", this.pointermove);
 		this.canvas.addEventListener("pointerup", this.pointerup)
-		this.start = { x: e.clientX - this.canvasRect.left, y: e.clientY - this.canvasRect.top };
+		this.center = { x: e.clientX - this.canvasRect.left, y: e.clientY - this.canvasRect.top };
 	}
 	/**
 	 *@param {PointerEvent} e 
@@ -40,19 +38,19 @@ export class Eliipse {
 	pointermove(e) {
 		e.preventDefault();
 		if (this.index > -1) {
-			this.deleteShapes("ellipse", this.index);
+			this.deleteShapes("circle", this.index);
 		}
-		this.index = this.shapes.ellipse[0].length;
+		this.index = this.shapes.circle[0].length;
 
 		this.canvasCtx.globalAlpha = 0.2;
 		const ellipse = new Path2D();
-		this.center = { x: (this.start.x + e.clientX - this.canvasRect.left) / 2, y: (this.start.y + e.clientY - this.canvasRect.top) / 2 };
-		this.radiusX = Math.abs(this.start.x - e.clientX - this.canvasRect.left) / 2;
-		this.radiusY = Math.abs(this.start.y - e.clientY - this.canvasRect.top) / 2;
-		ellipse.ellipse(this.center.x, this.center.y, this.radiusX, this.radiusY, 0, 0, this.angle360);
+		const radius = Math.sqrt(Math.pow(e.clientX - this.canvasRect.left - this.center.x, 2)
+			+ Math.pow(e.clientY - this.canvasRect.top - this.center.y, 2));
+		this.lastRadius = radius;
+		ellipse.arc(this.center.x, this.center.y, radius, 0, this.angle360);
 		this.canvasCtx.fill(ellipse);
 		this.canvasCtx.globalAlpha = 1.0;
-		this.shapes.ellipse[0].push(ellipse);
+		this.shapes.circle[0].push(ellipse);
 	}
 	/**
 	 *@param {PointerEvent} e 
@@ -62,7 +60,7 @@ export class Eliipse {
 		this.canvas.removeEventListener("pointerup", this.pointerup);
 		this.canvas.removeEventListener("pointermove", this.pointermove);
 		this.canvas.addEventListener("pointerdown", this.pointerdown);
-		this.addShape("ellipse", { start: this.start, center: this.center, radiusX: this.radiusX, radiusY: this.radiusY });
+		this.addShape("circle", { center: this.center, radius: this.lastRadius });
 		this.index = -1;
 		console.log(this.shapes)
 	}

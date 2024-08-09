@@ -1,4 +1,5 @@
-import { Ellipse } from "./ellipse.js";
+import { Circle } from "./circle.js";
+import { Eliipse } from "./ellipse.js";
 import { Eraser } from "./eraser.js";
 import { Pen } from "./pen.js";
 import { Rect } from "./rect.js";
@@ -41,9 +42,10 @@ let command = [undefined, -1];
 let mode = [undefined, -1];
 
 const SHAPES = {
-	rect: [[], []],
-	ellipse: [[], []],
-	pen: [[], []]
+	rect: [[], [], false],
+	circle: [[], [], false],
+	pen: [[], [], true],
+	ellipse: [[], [], false]
 }
 
 function deleteShapes(shape, index) {
@@ -53,11 +55,18 @@ function deleteShapes(shape, index) {
 	}
 	Object.values(SHAPES)
 		.forEach(shape_ => {
-			shape_[0].forEach(path => {
-				canvasCtx.globalAlpha = 0.2;
-				canvasCtx.fill(path);
-				canvasCtx.globalAlpha = 1.0;
-			})
+			if (shape_[2]) {
+				shape_[0].forEach(path => {
+					canvasCtx.stroke(path);
+				})
+
+			} else {
+				shape_[0].forEach(path => {
+					canvasCtx.globalAlpha = 0.2;
+					canvasCtx.fill(path);
+					canvasCtx.globalAlpha = 1.0;
+				})
+			}
 		})
 }
 
@@ -67,7 +76,8 @@ function addShape(shape, coords) {
 
 const COMMANDS = {
 	rect: new Rect(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
-	ellipse: new Ellipse(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
+	circle: new Circle(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
+	ellipse: new Eliipse(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
 	pen: new Pen(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
 	eraser: new Eraser(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes)
 };
