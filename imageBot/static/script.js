@@ -71,7 +71,7 @@ function deleteShapes(shape, index) {
 }
 
 function addShape(shape, coords) {
-	SHAPES[shape][1].push({ ...coords, mode });
+	SHAPES[shape][1].push({ ...coords, mode: mode[0] });
 }
 
 const COMMANDS = {
@@ -147,6 +147,8 @@ image.onload = () => {
 			}
 			mode[0] = modesContainer.children[i].id;
 			mode[1] = i;
+			console.log(mode)
+			console.log(SHAPES)
 		}
 	}
 

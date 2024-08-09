@@ -207,7 +207,7 @@ async def send_photo_to_server(file: telegram.File, context: ext.ContextTypes.DE
     format = im.format
     print(f"Original size: {w}x{h}")
 
-    ui_width = 387
+    ui_width = 420
     w_ratio = -1
     h_ratio = -1
     new_h = -1
@@ -297,7 +297,8 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
         print("key", key)
         if key == "rect":
             for f in data[key]:
-                mode = f["mode"][0]
+                mode = f["mode"]
+                print(mode)
                 box = (int(f["x1"] * w_ratio), int(f["y1"] * h_ratio), int(f["x2"] * w_ratio), int(f["y2"] * h_ratio))
                 print(box)
                 r = im.crop(box)
@@ -328,7 +329,7 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
                 draw = ImageDraw.Draw(mask)
                 center = f["center"]
                 radius = f["radius"]
-                mode = f["mode"][0]
+                mode = f["mode"]
                 box = (
                     int((center["x"] - radius) * w_ratio),
                     int((center["y"] - radius) * h_ratio),
@@ -368,7 +369,7 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
                 center = f["center"]
                 radiusX = f["radiusX"]
                 radiusY = f["radiusY"]
-                mode = f["mode"][0]
+                mode = f["mode"]
                 box = (
                     int((center["x"] - radiusX) * w_ratio),
                     int((center["y"] - radiusY) * h_ratio),
