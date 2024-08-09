@@ -35,11 +35,13 @@ const menuContainer = document.getElementById("menu-container");
 const modesContainer = document.getElementById("modes-container");
 /**
  * @type {HTMLButtonElement}
- */
-const penButton = document.getElementById("pen");
+ * */
+const cropButton = document.getElementById("crop");
 
 let command = [undefined, -1];
 let mode = [undefined, -1];
+let shapesNum = 0;
+let cropRect = [undefined];
 
 const SHAPES = {
 	rect: [[], [], false],
@@ -52,6 +54,18 @@ function deleteShapes(shape, index) {
 	canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
 	if (index > -1) {
 		SHAPES[shape][0].splice(index);
+	}
+	if (shape === "eraser") {
+		if (shapesNum === 1) {
+			for (let i = 0; i < menuContainer.children.length; i++) {
+				menuContainer.children[i].disabled = false;
+			}
+			for (let i = 0; i < modesContainer.children.length; i++) {
+				modesContainer.children[i].disabled = false;
+			}
+		}
+		shapesNum -= 1;
+		console.log(shapesNum);
 	}
 	Object.values(SHAPES)
 		.forEach(shape_ => {
@@ -72,6 +86,25 @@ function deleteShapes(shape, index) {
 
 function addShape(shape, coords) {
 	SHAPES[shape][1].push({ ...coords, mode: mode[0] });
+	shapesNum += 1;
+	console.log(shapesNum);
+	if (mode[0] === "crop") {
+		cropRect[0] = SHAPES[shape][0][SHAPES[shape][0].length - 1];
+		for (let i = 0; i < menuContainer.children.length; i++) {
+			if (menuContainer.children[i].id === "eraser") {
+				continue;
+			}
+			menuContainer.children[i].disabled = true;
+			menuContainer.children[i].setAttribute("state", "not");
+		}
+		for (let i = 0; i < modesContainer.children.length; i++) {
+			modesContainer.children[i].disabled = true;
+		}
+		removerCurrentEventListners("cursor", command[1])
+		command[0] = undefined;
+	} else {
+		cropButton.disabled = true;
+	}
 }
 
 const COMMANDS = {
@@ -116,10 +149,10 @@ image.onload = () => {
 			if (menuContainer.children[i].disabled) {
 				return
 			}
-			menuContainer.children[i].setAttribute("data-state", "active");
 			if (command[1] > -1) {
 				menuContainer.children[command[1]].setAttribute("data-state", "not");
 			}
+			menuContainer.children[i].setAttribute("data-state", "active");
 
 			removerCurrentEventListners(menuContainer.children[i].id, i);
 			if (menuContainer.children[i].id === "eraser") {
@@ -141,10 +174,11 @@ image.onload = () => {
 				}
 			}
 
-			modesContainer.children[i].setAttribute("data-state", "active");
 			if (mode[1] > -1) {
 				modesContainer.children[mode[1]].setAttribute("data-state", "not");
 			}
+			modesContainer.children[i].setAttribute("data-state", "active");
+
 			mode[0] = modesContainer.children[i].id;
 			mode[1] = i;
 			console.log(mode)
