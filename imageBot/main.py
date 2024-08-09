@@ -321,87 +321,61 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
                         context.user_data.clear();
                         buffer.close()
                         return await context.bot.send_message(text="the filter is not supported", chat_id=update.effective_chat.id)
-        elif key == "circle":
-            im.convert("RGBA")
-            for f in data[key]:
-                mask = Image.new("L", im.size, 0)
-                mask = mask.filter(ImageFilter.GaussianBlur(2))
-                draw = ImageDraw.Draw(mask)
-                center = f["center"]
-                radius = f["radius"]
-                mode = f["mode"]
-                box = (
-                    int((center["x"] - radius) * w_ratio),
-                    int((center["y"] - radius) * h_ratio),
-                    int((center["x"] + radius) * w_ratio),
-                    int((center["y"] + radius) * h_ratio)
-                )
-                draw.ellipse(box, fill=255, width=0)
-                r = Image.new("RGBA", im.size, (0,0,0,0))
-                r.paste(im, mask=mask)
-                r = r.crop(box)
-
-                if mode in filters:
-                    if mode == "blur":
-                        for _ in range(10):
-                            r = r.filter(filters[mode])
-                    else:
-                        r.filter(filters[mode])
-                    im.paste(r, box, mask=r)
-                else:
-                    if mode == "baw":
-                        r = r.convert("L")
-                        im.paste(r, box, mask=r)
-                    elif mode == "rotate":
-                        continue
-                    elif mode == "crop":
-                        im = r
-                    else:
-                        context.user_data.clear()
-                        buffer.close()
-                        return await context.bot.send_message(text="the filter is not supported", chat_id=update.effective_chat.id)
-        elif key == "ellipse":
-            im.convert("RGBA")
-            for f in data[key]:
-                mask = Image.new("L", im.size, 0)
-                mask = mask.filter(ImageFilter.GaussianBlur(2))
-                draw = ImageDraw.Draw(mask)
-                center = f["center"]
-                radiusX = f["radiusX"]
-                radiusY = f["radiusY"]
-                mode = f["mode"]
-                box = (
-                    int((center["x"] - radiusX) * w_ratio),
-                    int((center["y"] - radiusY) * h_ratio),
-                    int((center["x"] + radiusX) * w_ratio),
-                    int((center["y"] + radiusY) * h_ratio)
-                )
-                draw.ellipse(box, fill=255, width=0)
-                r = Image.new("RGBA", im.size, (0,0,0,0))
-                r.paste(im, mask=mask)
-                r = r.crop(box)
-
-                if mode in filters:
-                    if mode == "blur":
-                        for _ in range(10):
-                            r = r.filter(filters[mode])
-                    else:
-                        r.filter(filters[mode])
-                    im.paste(r, box, mask=r)
-                else:
-                    if mode == "baw":
-                        r = r.convert("L")
-                        im.paste(r, box, mask=r)
-                    elif mode == "rotate":
-                        continue
-                    elif mode == "crop":
-                        im = r
-                    else:
-                        context.user_data.clear()
-                        buffer.close()
-                        return await context.bot.send_message(text="the filter is not supported", chat_id=update.effective_chat.id)
-        else:
+        elif key == "pen":
             continue
+        else:
+            im.convert("RGBA")
+            for f in data[key]:
+                mask = Image.new("L", im.size, 0)
+                mask = mask.filter(ImageFilter.GaussianBlur(2))
+                draw = ImageDraw.Draw(mask)
+                box = ()
+                if key == "circle":
+                    center = f["center"]
+                    radius = f["radius"]
+                    mode = f["mode"]
+                    box = (
+                        int((center["x"] - radius) * w_ratio),
+                        int((center["y"] - radius) * h_ratio),
+                        int((center["x"] + radius) * w_ratio),
+                        int((center["y"] + radius) * h_ratio)
+                    )
+                else:
+                    center = f["center"]
+                    radiusX = f["radiusX"]
+                    radiusY = f["radiusY"]
+                    mode = f["mode"]
+                    box = (
+                        int((center["x"] - radiusX) * w_ratio),
+                        int((center["y"] - radiusY) * h_ratio),
+                        int((center["x"] + radiusX) * w_ratio),
+                        int((center["y"] + radiusY) * h_ratio)
+                    )
+
+                draw.ellipse(box, fill=255, width=0)
+                r = Image.new("RGBA", im.size, (0,0,0,0))
+                r.paste(im, mask=mask)
+                r = r.crop(box)
+
+                if mode in filters:
+                    if mode == "blur":
+                        for _ in range(10):
+                            r = r.filter(filters[mode])
+                    else:
+                        r.filter(filters[mode])
+                    im.paste(r, box, mask=r)
+                else:
+                    if mode == "baw":
+                        r = r.convert("L")
+                        im.paste(r, box, mask=r)
+                    elif mode == "rotate":
+                        continue
+                    elif mode == "crop":
+                        im = r
+                    else:
+                        context.user_data.clear()
+                        buffer.close()
+                        return await context.bot.send_message(text="the filter is not supported", chat_id=update.effective_chat.id)
 
     buffer.seek(0)
     try:
