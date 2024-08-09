@@ -62,7 +62,7 @@ export class Eliipse {
 		this.canvas.removeEventListener("pointerup", this.pointerup);
 		this.canvas.removeEventListener("pointermove", this.pointermove);
 		this.canvas.addEventListener("pointerdown", this.pointerdown);
-		this.addShape("ellipse", { start: this.start, center: this.center, radiusX: this.radiusX, radiusY: this.radiusY });
+		this.addShape("ellipse", { center: this.center, radiusX: this.radiusX, radiusY: this.radiusY });
 		this.index = -1;
 		console.log(this.shapes)
 	}
