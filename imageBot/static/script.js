@@ -38,10 +38,22 @@ const modesContainer = document.getElementById("modes-container");
  * */
 const cropButton = document.getElementById("crop");
 
+const zoomButton = document.createElement("button");
+zoomButton.onpointerdown = () => {
+	canvasCtx.scale(2, 2);
+	scale[0] *= 2;
+	scale[1] *= 2;
+	canvasBg.style.backgroundSize = `${scale[0] * 100}% ${scale[1] * 100}%`;
+	canvasBg.style.backgroundPosition = `${scale[2][0]}px ${scale[2][1]}px`;
+}
+
+document.body.appendChild(zoomButton)
+
 let command = [undefined, -1];
 let mode = [undefined, -1];
 let shapesNum = 0;
-let cropRect = [undefined];
+let cropRect = [undefined, undefined];
+let scale = [1, 1, [0, 0]];
 
 const SHAPES = {
 	rect: [[], [], false],
@@ -90,6 +102,24 @@ function addShape(shape, coords) {
 	console.log(shapesNum);
 	if (mode[0] === "crop") {
 		cropRect[0] = SHAPES[shape][0][SHAPES[shape][0].length - 1];
+		cropRect[1] = { ...coords };
+
+		/*
+		console.log("coords", coords);
+
+		scale[0] = canvas.width / Math.abs(coords.x2 - coords.x1);
+		scale[1] = canvas.height / Math.abs(coords.y2 - coords.y1);
+		scale[2][0] = ((coords.x2 + coords.x1) / 2);
+		scale[2][1] = ((coords.y2 + coords.y1) / 2);
+
+		console.log("width scale", scale[0]);
+		console.log("hieght scale", scale[1]);
+		console.log("middle point", scale[2]);
+
+		canvasCtx.scale(scale[0], scale[1]);
+		canvasBg.style.backgroundPosition = `${scale[2][0] - canvasRect.left}px ${scale[2][1] - canvasRect.top}px`;
+		canvasBg.style.backgroundSize = `${scale[0] * 100}% ${scale[1] * 100}%`;
+		*/
 		for (let i = 0; i < menuContainer.children.length; i++) {
 			if (menuContainer.children[i].id === "eraser") {
 				continue;
@@ -108,7 +138,7 @@ function addShape(shape, coords) {
 }
 
 const COMMANDS = {
-	rect: new Rect(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
+	rect: new Rect(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape, scale),
 	circle: new Circle(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
 	ellipse: new Eliipse(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
 	pen: new Pen(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
