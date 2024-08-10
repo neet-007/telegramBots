@@ -43,7 +43,6 @@ let command = [undefined, -1];
 let mode = [undefined, -1];
 let shapesNum = 0;
 let cropRect = [undefined, undefined];
-let scale = [1, 1];
 
 const SHAPES = {
 	rect: [[], [], false],
@@ -88,61 +87,20 @@ function deleteShapes(shape, index) {
 
 
 function addShape(shape, coords) {
+	SHAPES[shape][1].push({ ...coords, mode: mode[0] });
+	shapesNum += 1;
+	console.log(shapesNum);
 	if (mode[0] === "crop") {
 		cropRect[0] = SHAPES[shape][0][SHAPES[shape][0].length - 1];
 		cropRect[1] = { ...coords };
-		SHAPES[shape][0].splice(SHAPES[shape][0].length - 1);
-
-		if (command[0] === "rect") {
-			const width = Math.abs(coords.x2 - coords.x1);
-			const height = Math.abs(coords.y2 - coords.y1);
-			scale[0] = canvas.width / width;
-			scale[1] = canvas.height / height;
-
-			canvasBg.style.backgroundPosition = `-${coords.x1}px -${coords.y1}px`;
-			canvasBg.style.backgroundSize = `${scale[0] * 100}% ${scale[1] * 100}%`;
-
-			canvasBg.style.width = `${width}px`;
-			canvasBg.style.height = `${height}px`;
-			canvas.width = `${width}`;
-			canvas.height = `${height}`;
-			canvasCtx.scale(scale[0], scale[1]);
-		} else if (command[0] === "circle") {
-			const radius = coords.radius;
-			const center = coords.center;
-
-			scale[0] = canvas.height / radius;
-			scale[1] = canvas.height / radius;
-
-			canvasBg.style.backgroundPosition = `-${center.x - radius}px -${center.y - radius}px`;
-			canvasBg.style.backgroundSize = `${scale[0] * 100}% ${scale[1] * 100}%`;
-
-			canvasBg.style.width = `${radius}px`;
-			canvasBg.style.height = `${radius}px`;
-			canvasBg.style.borderRadius = "50%";
-			canvas.width = `${radius}`;
-			canvas.height = `${radius}`;
-			canvas.style.borderRadius = "50%"
-			canvasCtx.scale(scale[0], scale[1]);
-		}
-
-		removerCurrentEventListners("cursor", command[1]);
-		command[0] = undefined;
-		mode[0] = undefined;
-		cropButton.disabled = true;
-		cropButton.setAttribute("data-state", "not");
-	} else {
-		SHAPES[shape][1].push({ ...coords, mode: mode[0] });
-		shapesNum += 1;
-		console.log(shapesNum);
 	}
 }
 
 const COMMANDS = {
-	rect: new Rect(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape, scale),
-	circle: new Circle(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape, scale),
-	ellipse: new Eliipse(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape, scale),
-	pen: new Pen(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape, scale),
+	rect: new Rect(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
+	circle: new Circle(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
+	ellipse: new Eliipse(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
+	pen: new Pen(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
 	eraser: new Eraser(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes)
 };
 
@@ -221,9 +179,20 @@ image.onload = () => {
 	tele.expand();
 	tele.MainButton.setText('make changes').show().onClick(function() {
 
-		const data = {};
+		const data = { crop: { rect: [], circle: [], ellipse: [], pen: [] } };
 		for (const key in SHAPES) {
-			data[key] = SHAPES[key][1];
+			let deleteCount = 0;
+			const len = SHAPES[key][1].length
+			for (let i = 0; i < len; i++) {
+				if (SHAPES[key][1][i - deleteCount].mode === "crop") {
+					data.crop[key].push(SHAPES[key][1][i - deleteCount]);
+					SHAPES[key][1].splice(i - deleteCount, 1);
+					console.log(SHAPES[key][1])
+					deleteCount++;
+				}
+			}
+			console.log(SHAPES[key][1])
+			data[key] = [...SHAPES[key][1]];
 		}
 		console.log(data);
 		tele.sendData(JSON.stringify(data));

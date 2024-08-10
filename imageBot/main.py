@@ -267,6 +267,7 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
         context.user_data.clear();
         return await context.bot.send_message(text="an error happend when you sent the data or you didnt specify any changes", chat_id=update.effective_chat.id)
 
+    print("data:", data)
     w_ratio = context.user_data.get("w_ratio", None)
     h_ratio = context.user_data.get("h_ratio", None)
     buffer_data= context.user_data.get("image", None)
@@ -293,6 +294,7 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
         "smooth_more":ImageFilter.SMOOTH_MORE
     }
 
+    crop_list = []
     for key in data:
         print("key", key)
         if key == "rect":
@@ -323,7 +325,7 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
                         return await context.bot.send_message(text="the filter is not supported", chat_id=update.effective_chat.id)
         elif key == "pen":
             continue
-        else:
+        elif key == "circle" or key == "ellipse":
             im.convert("RGBA")
             for f in data[key]:
                 mask = Image.new("L", im.size, 0)
@@ -377,6 +379,48 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
                         buffer.close()
                         return await context.bot.send_message(text="the filter is not supported", chat_id=update.effective_chat.id)
 
+        else:
+            for shape in data[key]:
+                if shape == "rect":
+                    for f in data[key][shape]:
+                        box = (int(f["x1"] * w_ratio), int(f["y1"] * h_ratio), int(f["x2"] * w_ratio), int(f["y2"] * h_ratio))
+                        print(box)
+                        r = im.crop(box)
+                        crop_list.append(r)
+                elif shape == "pen":
+                    continue
+                else:
+                    im.convert("RGBA")
+                    for f in data[key][shape]:
+                        mask = Image.new("L", im.size, 0)
+                        mask = mask.filter(ImageFilter.GaussianBlur(2))
+                        draw = ImageDraw.Draw(mask)
+                        box = ()
+                        if key == "circle":
+                            center = f["center"]
+                            radius = f["radius"]
+                            box = (
+                                int((center["x"] - radius) * w_ratio),
+                                int((center["y"] - radius) * h_ratio),
+                                int((center["x"] + radius) * w_ratio),
+                                int((center["y"] + radius) * h_ratio)
+                            )
+                        else:
+                            center = f["center"]
+                            radiusX = f["radiusX"]
+                            radiusY = f["radiusY"]
+                            box = (
+                                int((center["x"] - radiusX) * w_ratio),
+                                int((center["y"] - radiusY) * h_ratio),
+                                int((center["x"] + radiusX) * w_ratio),
+                                int((center["y"] + radiusY) * h_ratio)
+                            )
+
+                        draw.ellipse(box, fill=255, width=0)
+                        r = Image.new("RGBA", im.size, (0,0,0,0))
+                        r.paste(im, mask=mask)
+                        r = r.crop(box)
+                        crop_list.append(r)
     buffer.seek(0)
     try:
         print("format:",format)
@@ -392,6 +436,30 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
         return await context.bot.send_message(text="an error happend pleaser try again", chat_id=update.effective_chat.id)
 
     buffer.seek(0)
+
+    print(crop_list)
+    if len(crop_list) > 0:
+        out_list = []
+        for r in crop_list:
+            try:
+                buffer_ = io.BytesIO()
+                buffer_.seek(0)
+                if format == "JPEG":
+                    r.convert("RGB")
+                    r.save(buffer_, format=format)
+                else:
+                    r.save(buffer_, format=format)
+                out_list.append(buffer_)
+                print(out_list)
+            except Exception as e:
+                buffer_.close()
+                print(e)
+
+        for b in out_list:
+            b.seek(0)
+            await context.bot.send_document(document=b, filename=f"image.{format.lower()}", chat_id=update.effective_chat.id)
+            b.close()
+
     await context.bot.send_document(document=buffer, filename=f"image.{format.lower()}", chat_id=update.effective_chat.id)
     context.user_data.clear()
     buffer.close()

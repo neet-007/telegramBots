@@ -5,7 +5,7 @@ export class Rect {
 	 *@param {CanvasRenderingContext2D} canvasCtx 
 	 *@param {DOMRect} canvasRect 
 	 * */
-	constructor(canvas, canvasCtx, canvasRect, shapes, deleteShapes, addShape, scale) {
+	constructor(canvas, canvasCtx, canvasRect, shapes, deleteShapes, addShape) {
 		this.canvas = canvas;
 		this.canvasCtx = canvasCtx;
 		this.canvasRect = canvasRect;
@@ -15,7 +15,6 @@ export class Rect {
 		this.deleteShapes = deleteShapes;
 		this.addShape = addShape;
 		this.lastCoords = { x: 0, y: 0 };
-		this.scale = scale;
 
 		this.pointerup = this.pointerup.bind(this);
 		this.pointerdown = this.pointerdown.bind(this);
@@ -31,7 +30,7 @@ export class Rect {
 		this.canvas.removeEventListener("pointerdown", this.pointerdown);
 		this.canvas.addEventListener("pointermove", this.pointermove);
 		this.canvas.addEventListener("pointerup", this.pointerup)
-		this.start = { x: (e.clientX - this.canvasRect.left) / this.scale[0], y: (e.clientY - this.canvasRect.top) / this.scale[1] };
+		this.start = { x: (e.clientX - this.canvasRect.left), y: (e.clientY - this.canvasRect.top) };
 	}
 	/**
 	 *@param {PointerEvent} e 
@@ -45,7 +44,7 @@ export class Rect {
 
 		this.canvasCtx.globalAlpha = 0.2;
 		const rect = new Path2D();
-		this.lastCoords = { x: (e.clientX - this.canvasRect.left) / this.scale[0], y: (e.clientY - this.canvasRect.top) / this.scale[1] };
+		this.lastCoords = { x: (e.clientX - this.canvasRect.left), y: (e.clientY - this.canvasRect.top) };
 		rect.rect(this.start.x, this.start.y, this.lastCoords.x - this.start.x, this.lastCoords.y - this.start.y);
 		this.canvasCtx.fill(rect);
 		this.canvasCtx.globalAlpha = 1.0;
