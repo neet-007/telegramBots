@@ -26,6 +26,7 @@ export class Rect {
 	 *@param {PointerEvent} e 
 	 * */
 	pointerdown(e) {
+		console.log(this.canvasRect)
 		e.preventDefault();
 		this.canvas.removeEventListener("pointerdown", this.pointerdown);
 		this.canvas.addEventListener("pointermove", this.pointermove);

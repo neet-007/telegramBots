@@ -38,22 +38,12 @@ const modesContainer = document.getElementById("modes-container");
  * */
 const cropButton = document.getElementById("crop");
 
-const zoomButton = document.createElement("button");
-zoomButton.onpointerdown = () => {
-	canvasCtx.scale(2, 2);
-	scale[0] *= 2;
-	scale[1] *= 2;
-	canvasBg.style.backgroundSize = `${scale[0] * 100}% ${scale[1] * 100}%`;
-	canvasBg.style.backgroundPosition = `${scale[2][0]}px ${scale[2][1]}px`;
-}
-
-document.body.appendChild(zoomButton)
 
 let command = [undefined, -1];
 let mode = [undefined, -1];
 let shapesNum = 0;
 let cropRect = [undefined, undefined];
-let scale = [1, 1, [0, 0]];
+let scale = [1, 1];
 
 const SHAPES = {
 	rect: [[], [], false],
@@ -98,59 +88,61 @@ function deleteShapes(shape, index) {
 
 
 function addShape(shape, coords) {
-	SHAPES[shape][1].push({ ...coords, mode: mode[0] });
-	shapesNum += 1;
-	console.log(shapesNum);
 	if (mode[0] === "crop") {
 		cropRect[0] = SHAPES[shape][0][SHAPES[shape][0].length - 1];
 		cropRect[1] = { ...coords };
+		SHAPES[shape][0].splice(SHAPES[shape][0].length - 1);
 
+		if (command[0] === "rect") {
+			const width = Math.abs(coords.x2 - coords.x1);
+			const height = Math.abs(coords.y2 - coords.y1);
+			scale[0] = canvas.width / width;
+			scale[1] = canvas.height / height;
 
-		console.log("coords", coords);
+			canvasBg.style.backgroundPosition = `-${coords.x1}px -${coords.y1}px`;
+			canvasBg.style.backgroundSize = `${scale[0] * 100}% ${scale[1] * 100}%`;
 
-		scale[0] = canvas.width / Math.abs(coords.x2 - coords.x1);
-		scale[1] = canvas.height / Math.abs(coords.y2 - coords.y1);
-		scale[2][0] = ((coords.x2 + coords.x1) / 2);
-		scale[2][1] = ((coords.y2 + coords.y1) / 2);
+			canvasBg.style.width = `${width}px`;
+			canvasBg.style.height = `${height}px`;
+			canvas.width = `${width}`;
+			canvas.height = `${height}`;
+			canvasCtx.scale(scale[0], scale[1]);
+		} else if (command[0] === "circle") {
+			const radius = coords.radius;
+			const center = coords.center;
 
-		console.log("width scale", scale[0]);
-		console.log("hieght scale", scale[1]);
-		console.log("middle point", scale[2]);
+			scale[0] = canvas.height / radius;
+			scale[1] = canvas.height / radius;
 
-		canvasBg.style.backgroundPosition = `-${coords.x1}px -${coords.y1}px`;
-		canvasBg.style.backgroundSize = `${scale[0] * 100}% ${scale[1] * 100}%`;
+			canvasBg.style.backgroundPosition = `-${center.x - radius}px -${center.y - radius}px`;
+			canvasBg.style.backgroundSize = `${scale[0] * 100}% ${scale[1] * 100}%`;
 
-		canvasBg.style.width = `${Math.abs(coords.x2 - coords.x1)}px`;
-		canvasBg.style.height = `${Math.abs(coords.y2 - coords.y1)}px`;
-		canvas.width = `${Math.abs(coords.x2 - coords.x1)}`;
-		canvas.height = `${Math.abs(coords.y2 - coords.y1)}`;
-		/*
-		canvasCtx.scale(scale[0], scale[1]);
-		canvasBg.style.backgroundPosition = `${scale[2][0] - canvasRect.left}px ${scale[2][1] - canvasRect.top}px`;
-		canvasBg.style.backgroundSize = `${scale[0] * 100}% ${scale[1] * 100}%`;
-		*/
-		for (let i = 0; i < menuContainer.children.length; i++) {
-			if (menuContainer.children[i].id === "eraser") {
-				continue;
-			}
-			menuContainer.children[i].disabled = true;
-			menuContainer.children[i].setAttribute("state", "not");
+			canvasBg.style.width = `${radius}px`;
+			canvasBg.style.height = `${radius}px`;
+			canvasBg.style.borderRadius = "50%";
+			canvas.width = `${radius}`;
+			canvas.height = `${radius}`;
+			canvas.style.borderRadius = "50%"
+			canvasCtx.scale(scale[0], scale[1]);
 		}
-		for (let i = 0; i < modesContainer.children.length; i++) {
-			modesContainer.children[i].disabled = true;
-		}
-		removerCurrentEventListners("cursor", command[1])
+
+		removerCurrentEventListners("cursor", command[1]);
 		command[0] = undefined;
-	} else {
+		mode[0] = undefined;
 		cropButton.disabled = true;
+		cropButton.setAttribute("data-state", "not");
+	} else {
+		SHAPES[shape][1].push({ ...coords, mode: mode[0] });
+		shapesNum += 1;
+		console.log(shapesNum);
 	}
 }
 
 const COMMANDS = {
 	rect: new Rect(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape, scale),
-	circle: new Circle(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
-	ellipse: new Eliipse(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
-	pen: new Pen(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
+	circle: new Circle(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape, scale),
+	ellipse: new Eliipse(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape, scale),
+	pen: new Pen(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape, scale),
 	eraser: new Eraser(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes)
 };
 
@@ -184,7 +176,7 @@ image.onload = () => {
 
 	for (let i = 0; i < menuContainer.children.length; i++) {
 		menuContainer.children[i].disabled = true;
-		menuContainer.children[i].onpointerdown = () => {
+		menuContainer.children[i].onclick = () => {
 			if (menuContainer.children[i].disabled) {
 				return
 			}
@@ -206,7 +198,7 @@ image.onload = () => {
 		}
 	}
 	for (let i = 0; i < modesContainer.children.length; i++) {
-		modesContainer.children[i].onpointerdown = () => {
+		modesContainer.children[i].onclick = () => {
 			if (mode[0] === undefined) {
 				for (let i = 0; i < menuContainer.children.length; i++) {
 					menuContainer.children[i].disabled = false;
