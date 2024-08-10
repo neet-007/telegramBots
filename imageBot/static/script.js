@@ -96,6 +96,7 @@ function deleteShapes(shape, index) {
 		})
 }
 
+
 function addShape(shape, coords) {
 	SHAPES[shape][1].push({ ...coords, mode: mode[0] });
 	shapesNum += 1;
@@ -104,7 +105,7 @@ function addShape(shape, coords) {
 		cropRect[0] = SHAPES[shape][0][SHAPES[shape][0].length - 1];
 		cropRect[1] = { ...coords };
 
-		/*
+
 		console.log("coords", coords);
 
 		scale[0] = canvas.width / Math.abs(coords.x2 - coords.x1);
@@ -116,6 +117,14 @@ function addShape(shape, coords) {
 		console.log("hieght scale", scale[1]);
 		console.log("middle point", scale[2]);
 
+		canvasBg.style.backgroundPosition = `-${coords.x1}px -${coords.y1}px`;
+		canvasBg.style.backgroundSize = `${scale[0] * 100}% ${scale[1] * 100}%`;
+
+		canvasBg.style.width = `${Math.abs(coords.x2 - coords.x1)}px`;
+		canvasBg.style.height = `${Math.abs(coords.y2 - coords.y1)}px`;
+		canvas.width = `${Math.abs(coords.x2 - coords.x1)}`;
+		canvas.height = `${Math.abs(coords.y2 - coords.y1)}`;
+		/*
 		canvasCtx.scale(scale[0], scale[1]);
 		canvasBg.style.backgroundPosition = `${scale[2][0] - canvasRect.left}px ${scale[2][1] - canvasRect.top}px`;
 		canvasBg.style.backgroundSize = `${scale[0] * 100}% ${scale[1] * 100}%`;
