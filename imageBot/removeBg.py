@@ -188,25 +188,32 @@ def remove_bg(img: Image.Image):
     img_ = canny_edge_detection(img_)
 
     mask = Image.fromarray((img_ > 0).astype(np.uint8) * 255)
-    mask.save("./static/uploads/removed_bg_mask.png")
-    mask = mask.filter(ImageFilter.MaxFilter(5))
+    
     mask = mask.resize(img.size)
+    #mask = mask.filter(ImageFilter.MaxFilter(3))  # Dilate
+    #mask = mask.filter(ImageFilter.MinFilter(3))  # Erode
 
-    alpha_channel = ImageOps.invert(mask).convert("L")
+    mask.save("./static/uploads/removed_bg_mask.png")
+    alpha = ImageOps.invert(mask)
+    
+    original_rgba = img.convert("RGBA")
+    
+    original_rgba.putalpha(alpha)
+    
+    background = Image.new("RGBA", original_rgba.size, (0, 0, 0, 0))
+    
+    result = Image.composite(original_rgba, background, mask)
 
-    img.putalpha(alpha_channel)
-
-    return img
-
+    return result
 
 if __name__ == "__main__":
-    img = Image.open("./static/uploads/remove_bg.jpg")
+    img = Image.open("./static/uploads/example.png")
 
     res = remove_bg(img)
 
 
-    img.show()
-    img.save("./static/uploads/removed_bg.png")
+    res.show()
+    res.save("./static/uploads/removed_bg.png")
 
 
 
