@@ -9,6 +9,7 @@ python-telegram-bot = {extras = ["job-queue"], version = "*"}
 python-dotenv = "*"
 flask = "*"
 aiohttp = "*"
+numpy = "*"
 
 [dev-packages]
 
