@@ -392,11 +392,12 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
                 else:
                     im.convert("RGBA")
                     for f in data[key][shape]:
+                        print("crop circle ellipse", shape)
                         mask = Image.new("L", im.size, 0)
                         mask = mask.filter(ImageFilter.GaussianBlur(2))
                         draw = ImageDraw.Draw(mask)
                         box = ()
-                        if key == "circle":
+                        if shape == "circle":
                             center = f["center"]
                             radius = f["radius"]
                             box = (
@@ -445,7 +446,7 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
                 buffer_ = io.BytesIO()
                 buffer_.seek(0)
                 if format == "JPEG":
-                    r.convert("RGB")
+                    r = r.convert("RGB")
                     r.save(buffer_, format=format)
                 else:
                     r.save(buffer_, format=format)

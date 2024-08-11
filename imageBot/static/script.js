@@ -179,7 +179,7 @@ image.onload = () => {
 	tele.expand();
 	tele.MainButton.setText('make changes').show().onClick(function() {
 
-		const data = { crop: { rect: [], circle: [], ellipse: [], pen: [] } };
+		const data = { rect: [], circle: [], ellipse: [], pen: [], crop: { rect: [], circle: [], ellipse: [], pen: [] } };
 		for (const key in SHAPES) {
 			let deleteCount = 0;
 			const len = SHAPES[key][1].length
