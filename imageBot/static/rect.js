@@ -5,7 +5,7 @@ export class Rect {
 	 *@param {CanvasRenderingContext2D} canvasCtx 
 	 *@param {DOMRect} canvasRect 
 	 * */
-	constructor(canvas, canvasCtx, canvasRect, shapes, deleteShapes, addShape) {
+	constructor(canvas, canvasCtx, canvasRect, shapes, deleteShapes, addShape, mode) {
 		this.canvas = canvas;
 		this.canvasCtx = canvasCtx;
 		this.canvasRect = canvasRect;
@@ -14,6 +14,7 @@ export class Rect {
 		this.shapes = shapes;
 		this.deleteShapes = deleteShapes;
 		this.addShape = addShape;
+		this.mode = mode;
 		this.lastCoords = { x: 0, y: 0 };
 
 		this.pointerup = this.pointerup.bind(this);
@@ -42,11 +43,13 @@ export class Rect {
 		}
 		this.index = this.shapes.rect[0].length;
 
+		this.canvasCtx.fillStyle = this.mode[2];
 		this.canvasCtx.globalAlpha = 0.2;
 		const rect = new Path2D();
 		this.lastCoords = { x: (e.clientX - this.canvasRect.left), y: (e.clientY - this.canvasRect.top) };
 		rect.rect(this.start.x, this.start.y, this.lastCoords.x - this.start.x, this.lastCoords.y - this.start.y);
 		this.canvasCtx.fill(rect);
+		this.canvasCtx.fillStyle = "black";
 		this.canvasCtx.globalAlpha = 1.0;
 		this.shapes.rect[0].push(rect);
 	}

@@ -40,7 +40,7 @@ const cropButton = document.getElementById("crop");
 
 
 let command = [undefined, -1];
-let mode = [undefined, -1];
+let mode = [undefined, -1, "black"];
 let shapesNum = 0;
 let cropRect = [undefined, undefined];
 
@@ -76,7 +76,9 @@ function deleteShapes(shape, index) {
 				})
 
 			} else {
-				shape_[0].forEach(path => {
+				shape_[0].forEach((path, index) => {
+					console.log(shape_[1][index])
+					canvasCtx.fillStyle = shape_[1][index] !== undefined ? shape_[1][index].fill : mode[2];
 					canvasCtx.globalAlpha = 0.2;
 					canvasCtx.fill(path);
 					canvasCtx.globalAlpha = 1.0;
@@ -87,7 +89,7 @@ function deleteShapes(shape, index) {
 
 
 function addShape(shape, coords) {
-	SHAPES[shape][1].push({ ...coords, mode: mode[0] });
+	SHAPES[shape][1].push({ ...coords, mode: mode[0], fill: mode[2] });
 	shapesNum += 1;
 	console.log(shapesNum);
 	if (mode[0] === "crop") {
@@ -97,9 +99,9 @@ function addShape(shape, coords) {
 }
 
 const COMMANDS = {
-	rect: new Rect(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
-	circle: new Circle(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
-	ellipse: new Eliipse(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
+	rect: new Rect(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape, mode),
+	circle: new Circle(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape, mode),
+	ellipse: new Eliipse(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape, mode),
 	pen: new Pen(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes, addShape),
 	eraser: new Eraser(canvas, canvasCtx, canvasRect, SHAPES, deleteShapes)
 };
@@ -170,6 +172,8 @@ image.onload = () => {
 
 			mode[0] = modesContainer.children[i].id;
 			mode[1] = i;
+			mode[2] = modesContainer.children[i].getAttribute("data-color", "black");
+			canvasCtx.fillStyle = mode[2];
 			console.log(mode)
 			console.log(SHAPES)
 		}

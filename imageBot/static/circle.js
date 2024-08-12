@@ -5,7 +5,7 @@ export class Circle {
 	 *@param {CanvasRenderingContext2D} canvasCtx 
 	 *@param {DOMRect} canvasRect 
 	 * */
-	constructor(canvas, canvasCtx, canvasRect, shapes, deleteShapes, addShape) {
+	constructor(canvas, canvasCtx, canvasRect, shapes, deleteShapes, addShape, mode) {
 		this.canvas = canvas;
 		this.canvasCtx = canvasCtx;
 		this.canvasRect = canvasRect;
@@ -15,6 +15,7 @@ export class Circle {
 		this.shapes = shapes;
 		this.deleteShapes = deleteShapes;
 		this.addShape = addShape;
+		this.mode = mode;
 		this.lastRadius = 0;
 
 		this.pointerup = this.pointerup.bind(this);
@@ -42,6 +43,7 @@ export class Circle {
 		}
 		this.index = this.shapes.circle[0].length;
 
+		this.canvasCtx.fillStyle = this.mode[2];
 		this.canvasCtx.globalAlpha = 0.2;
 		const ellipse = new Path2D();
 		const radius = Math.sqrt(Math.pow(e.clientX - this.canvasRect.left - this.center.x, 2)
@@ -49,6 +51,7 @@ export class Circle {
 		this.lastRadius = radius;
 		ellipse.arc(this.center.x, this.center.y, radius, 0, this.angle360);
 		this.canvasCtx.fill(ellipse);
+		this.canvasCtx.fillStyle = "black";
 		this.canvasCtx.globalAlpha = 1.0;
 		this.shapes.circle[0].push(ellipse);
 	}

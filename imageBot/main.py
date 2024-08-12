@@ -444,8 +444,10 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
             im.save(buffer, format="JPEG")
         else:
             im.save(buffer, format=format)
+        im.close()
     except Exception as e:
-        context.user_data.clear();
+        context.user_data.clear()
+        im.close()
         buffer.close()
         print(e)
         return await context.bot.send_message(text="an error happend pleaser try again", chat_id=update.effective_chat.id)
@@ -466,9 +468,11 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
                 else:
                     r.save(buffer_, format=format_)
                 out_list.append((buffer_, format_))
+                r.close()
                 print(out_list)
             except Exception as e:
                 buffer_.close()
+                r.close()
                 print(e)
 
         for b, f in out_list:

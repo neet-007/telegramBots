@@ -5,7 +5,7 @@ export class Eliipse {
 	 *@param {CanvasRenderingContext2D} canvasCtx 
 	 *@param {DOMRect} canvasRect 
 	 * */
-	constructor(canvas, canvasCtx, canvasRect, shapes, deleteShapes, addShape) {
+	constructor(canvas, canvasCtx, canvasRect, shapes, deleteShapes, addShape, mode) {
 		this.canvas = canvas;
 		this.canvasCtx = canvasCtx;
 		this.canvasRect = canvasRect;
@@ -15,6 +15,7 @@ export class Eliipse {
 		this.shapes = shapes;
 		this.deleteShapes = deleteShapes;
 		this.addShape = addShape;
+		this.mode = mode;
 		this.lastCenter = { x: 0, y: 0 };
 		this.lastRadiusX = 0;
 		this.lastRadiusY = 0;
@@ -44,6 +45,7 @@ export class Eliipse {
 		}
 		this.index = this.shapes.ellipse[0].length;
 
+		this.canvasCtx.fillStyle = this.mode[2];
 		this.canvasCtx.globalAlpha = 0.2;
 		const ellipse = new Path2D();
 		this.center = { x: (this.start.x + e.clientX - this.canvasRect.left) / 2, y: (this.start.y + e.clientY - this.canvasRect.top) / 2 };
@@ -51,6 +53,7 @@ export class Eliipse {
 		this.radiusY = Math.abs(this.start.y - e.clientY - this.canvasRect.top) / 2;
 		ellipse.ellipse(this.center.x, this.center.y, this.radiusX, this.radiusY, 0, 0, this.angle360);
 		this.canvasCtx.fill(ellipse);
+		this.canvasCtx.fillStyle = "black";
 		this.canvasCtx.globalAlpha = 1.0;
 		this.shapes.ellipse[0].push(ellipse);
 	}
