@@ -4,15 +4,18 @@ import numpy as np
 
 def resize_img(img: Image.Image):
     w, h = img.size
-
+  
+    reducers = 8
+    if w > 2000 or h > 2000:
+        reducers = 16
     if w > h:
         ratio = w / h
-        w = int((w // 8) * ratio)
-        h = h // 8
+        w = int((w // reducers) * ratio)
+        h = h // reducers
     elif h > w:
         ratio = h / w
-        h = int((h // 8) * ratio)
-        w = w // 8
+        h = int((h // reducers) * ratio)
+        w = w // reducers
     img = img.resize((w, h))
 
     return img
@@ -54,7 +57,7 @@ def img_to_ascii(img: np.ndarray):
 
 
 if __name__ == "__main__":
-    img = Image.open("./static/uploads/uploaded_img.jpeg")
+    img = Image.open("./static/uploads/rome3.jpg")
     img = resize_img(img)
 
     img_ = np.array(img)
@@ -65,11 +68,8 @@ if __name__ == "__main__":
 
 
     res = img_to_ascii(img_)
-    with open("./static/uploads/ascii.txt", 'w') as f:
-        lines = res.splitlines()
-        for line in lines:
-            f.write(line + "\n")
     print(res)
+
 
 
 

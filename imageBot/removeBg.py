@@ -1,5 +1,6 @@
 import numpy as np
-from PIL import Image, ImageFilter, ImageOps
+from PIL import Image
+
 
 def convolution(img: np.ndarray, kernal: np.ndarray) -> np.ndarray:
     if len(img.shape) == 3:
@@ -10,7 +11,7 @@ def convolution(img: np.ndarray, kernal: np.ndarray) -> np.ndarray:
         m_i, n_i, c_i = img.shape
 
     else:
-        raise ValueError("cant support less than 2 channels")
+        raise ValueError("image foramt not recognized")
 
     m_k, n_k = kernal.shape
 
@@ -190,31 +191,36 @@ def remove_bg(img: Image.Image):
     mask = Image.fromarray((img_ > 0).astype(np.uint8) * 255)
     
     mask = mask.resize(img.size)
-    #mask = mask.filter(ImageFilter.MaxFilter(3))  # Dilate
-    #mask = mask.filter(ImageFilter.MinFilter(3))  # Erode
 
     mask.save("./static/uploads/removed_bg_mask.png")
-    alpha = ImageOps.invert(mask)
+    #alpha = ImageOps.invert(mask)
     
     original_rgba = img.convert("RGBA")
     
-    original_rgba.putalpha(alpha)
+    original_rgba.show()
+    #original_rgba.putalpha(mask)
     
+    original_rgba.show()
+
     background = Image.new("RGBA", original_rgba.size, (0, 0, 0, 0))
     
     result = Image.composite(original_rgba, background, mask)
 
+    original_rgba.close()
+    mask.close()
+    background.close()
+    #alpha.close()
     return result
 
 if __name__ == "__main__":
-    img = Image.open("./static/uploads/example.png")
+    img = Image.open("./static/uploads/uploaded_img.jpeg")
 
     res = remove_bg(img)
 
 
     res.show()
     res.save("./static/uploads/removed_bg.png")
-
+    res.close()
 
 
 
