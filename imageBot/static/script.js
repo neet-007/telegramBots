@@ -188,8 +188,10 @@ image.onload = () => {
 			let deleteCount = 0;
 			const len = SHAPES[key][1].length
 			for (let i = 0; i < len; i++) {
-				if (SHAPES[key][1][i - deleteCount].mode === "crop") {
-					data.crop[key].push(SHAPES[key][1][i - deleteCount]);
+				const { fill, ...val } = SHAPES[key][1][i - deleteCount];
+				SHAPES[key][1][i - deleteCount] = val;
+				if (val.mode === "crop") {
+					data.crop[key].push(val);
 					SHAPES[key][1].splice(i - deleteCount, 1);
 					console.log(SHAPES[key][1])
 					deleteCount++;
