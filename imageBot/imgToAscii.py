@@ -5,7 +5,7 @@ import numpy as np
 def resize_img(img: Image.Image):
     w, h = img.size
   
-    reducers = 8
+    reducers = 1
     if w > 2000 or h > 2000:
         reducers = 16
     if w > h:
@@ -57,7 +57,7 @@ def img_to_ascii(img: np.ndarray):
 
 
 if __name__ == "__main__":
-    img = Image.open("./static/uploads/rome3.jpg")
+    img = Image.open("./static/uploads/old logo.png")
     img = resize_img(img)
 
     img_ = np.array(img)

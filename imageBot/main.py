@@ -445,20 +445,21 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
             try:
                 buffer_ = io.BytesIO()
                 buffer_.seek(0)
+                format_ = format
                 if format == "JPEG":
-                    r = r.convert("RGB")
-                    r.save(buffer_, format=format)
+                    format_ = "PNG"
+                    r.save(buffer_, format="PNG")
                 else:
-                    r.save(buffer_, format=format)
-                out_list.append(buffer_)
+                    r.save(buffer_, format=format_)
+                out_list.append((buffer_, format_))
                 print(out_list)
             except Exception as e:
                 buffer_.close()
                 print(e)
 
-        for b in out_list:
+        for b, f in out_list:
             b.seek(0)
-            await context.bot.send_document(document=b, filename=f"image.{format.lower()}", chat_id=update.effective_chat.id)
+            await context.bot.send_document(document=b, filename=f"image.{f.lower()}", chat_id=update.effective_chat.id)
             b.close()
 
     await context.bot.send_document(document=buffer, filename=f"image.{format.lower()}", chat_id=update.effective_chat.id)
