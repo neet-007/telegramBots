@@ -33,10 +33,6 @@ const menuContainer = document.getElementById("menu-container");
  * @type {HTMLDivElement}
 */
 const modesContainer = document.getElementById("modes-container");
-/**
- * @type {HTMLButtonElement}
- * */
-const cropButton = document.getElementById("crop");
 
 
 let command = [undefined, -1];
@@ -66,7 +62,6 @@ function deleteShapes(shape, index) {
 			}
 		}
 		shapesNum -= 1;
-		console.log(shapesNum);
 	}
 	Object.values(SHAPES)
 		.forEach(shape_ => {
@@ -77,7 +72,6 @@ function deleteShapes(shape, index) {
 
 			} else {
 				shape_[0].forEach((path, index) => {
-					console.log(shape_[1][index])
 					canvasCtx.fillStyle = shape_[1][index] !== undefined ? shape_[1][index].fill : mode[2];
 					canvasCtx.globalAlpha = 0.2;
 					canvasCtx.fill(path);
@@ -91,7 +85,6 @@ function deleteShapes(shape, index) {
 function addShape(shape, coords) {
 	SHAPES[shape][1].push({ ...coords, mode: mode[0], fill: mode[2] });
 	shapesNum += 1;
-	console.log(shapesNum);
 	if (mode[0] === "crop") {
 		cropRect[0] = SHAPES[shape][0][SHAPES[shape][0].length - 1];
 		cropRect[1] = { ...coords };
@@ -136,6 +129,17 @@ image.onload = () => {
 
 	for (let i = 0; i < menuContainer.children.length; i++) {
 		menuContainer.children[i].disabled = true;
+		if (menuContainer.children[i].id === "reset") {
+			menuContainer.children[i].onclick = () => {
+				SHAPES.rect = [[], [], false];
+				SHAPES.circle = [[], [], false];
+				SHAPES.ellipse = [[], [], false];
+				SHAPES.pen = [[], [], true];
+				deleteShapes(-1, "reset");
+				shapesNum = 0;
+			}
+			continue
+		}
 		menuContainer.children[i].onclick = () => {
 			if (menuContainer.children[i].disabled) {
 				return
@@ -174,15 +178,16 @@ image.onload = () => {
 			mode[1] = i;
 			mode[2] = modesContainer.children[i].getAttribute("data-color", "black");
 			canvasCtx.fillStyle = mode[2];
-			console.log(mode)
-			console.log(SHAPES)
 		}
 	}
 
 	tele.ready();
 	tele.expand();
 	tele.MainButton.setText('make changes').show().onClick(function() {
-
+		if (shapesNum <= 0 || shapesNum > 15) {
+			alert("cant send 0 shapes or more than 15");
+			return;
+		}
 		const data = { rect: [], circle: [], ellipse: [], pen: [], crop: { rect: [], circle: [], ellipse: [], pen: [] } };
 		for (const key in SHAPES) {
 			let deleteCount = 0;
@@ -193,14 +198,12 @@ image.onload = () => {
 				if (val.mode === "crop") {
 					data.crop[key].push(val);
 					SHAPES[key][1].splice(i - deleteCount, 1);
-					console.log(SHAPES[key][1])
 					deleteCount++;
 				}
 			}
-			console.log(SHAPES[key][1])
 			data[key] = [...SHAPES[key][1]];
 		}
-		console.log(data);
+		data["shapesNum"] = shapesNum;
 		tele.sendData(JSON.stringify(data));
 		tele.close();
 	});

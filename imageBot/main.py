@@ -267,6 +267,9 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
         context.user_data.clear();
         return await context.bot.send_message(text="an error happend when you sent the data or you didnt specify any changes", chat_id=update.effective_chat.id)
 
+    if data["shapesNum"] < 0 or data["shapesNum"] > 15:
+        return await context.bot.send_message(text="cant process zero shapes or more than 15", chat_id=update.effective_chat.id)
+
     print("data:", data)
     w_ratio = context.user_data.get("w_ratio", None)
     h_ratio = context.user_data.get("h_ratio", None)

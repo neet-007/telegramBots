@@ -65,6 +65,5 @@ export class Circle {
 		this.canvas.addEventListener("pointerdown", this.pointerdown);
 		this.addShape("circle", { center: this.center, radius: this.lastRadius });
 		this.index = -1;
-		console.log(this.shapes)
 	}
 }

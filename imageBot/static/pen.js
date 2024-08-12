@@ -74,7 +74,6 @@ export class Pen {
 		}
 
 		this.deleteShapes("pen", -1);
-		console.log(this.shapes)
 		this.start = { x: 0, y: 0 };
 		this.stackTrace = [];
 		this.path = undefined;

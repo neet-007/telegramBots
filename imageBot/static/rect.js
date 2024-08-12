@@ -63,6 +63,5 @@ export class Rect {
 		this.canvas.addEventListener("pointerdown", this.pointerdown);
 		this.addShape("rect", { x1: this.start.x, y1: this.start.y, x2: this.lastCoords.x, y2: this.lastCoords.y });
 		this.index = -1;
-		console.log(this.shapes)
 	}
 }

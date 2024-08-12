@@ -67,6 +67,5 @@ export class Eliipse {
 		this.canvas.addEventListener("pointerdown", this.pointerdown);
 		this.addShape("ellipse", { center: this.center, radiusX: this.radiusX, radiusY: this.radiusY });
 		this.index = -1;
-		console.log(this.shapes)
 	}
 }

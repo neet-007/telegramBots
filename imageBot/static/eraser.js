@@ -29,7 +29,6 @@ export class Eraser {
 					shapesArr[i][1].splice(j, 1);
 					swap = true;
 					this.deleteShapes("eraser", -1);
-					console.log(this.shapes)
 					break;
 				}
 			}
