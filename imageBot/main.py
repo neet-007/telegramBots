@@ -301,7 +301,14 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
             for f in data[key]:
                 mode = f["mode"]
                 print(mode)
-                box = (int(f["x1"] * w_ratio), int(f["y1"] * h_ratio), int(f["x2"] * w_ratio), int(f["y2"] * h_ratio))
+                x1, y1, x2, y2 = f.get("x1", None), f.get("y1", None), f.get("x2", None), f.get("y2", None)
+                if x1 == None or y1 == None or x2 == None or y2 == None:
+                    return await context.bot.send_message(text="an error happend please try again", chat_id=update.effective_chat.id)
+                if x1 > x2:
+                    x1, x2 = x2, x1
+                if y1 > y2:
+                    y1, y2 = y2, y1
+                box = (int(x1 * w_ratio), int(y1 * h_ratio), int(x2 * w_ratio), int(y2 * h_ratio))
                 print(box)
                 r = im.crop(box)
                 if mode in filters:
@@ -383,7 +390,14 @@ async def handle_web_app_data(update: Update, context: ext.ContextTypes.DEFAULT_
             for shape in data[key]:
                 if shape == "rect":
                     for f in data[key][shape]:
-                        box = (int(f["x1"] * w_ratio), int(f["y1"] * h_ratio), int(f["x2"] * w_ratio), int(f["y2"] * h_ratio))
+                        x1, y1, x2, y2 = f.get("x1", None), f.get("y1", None), f.get("x2", None), f.get("y2", None)
+                        if x1 == None or y1 == None or x2 == None or y2 == None:
+                            return await context.bot.send_message(text="an error happend please try again", chat_id=update.effective_chat.id)
+                        if x1 > x2:
+                            x1, x2 = x2, x1
+                        if y1 > y2:
+                            y1, y2 = y2, y1
+                        box = (int(x1 * w_ratio), int(y1 * h_ratio), int(x2 * w_ratio), int(y2 * h_ratio))
                         print(box)
                         r = im.crop(box)
                         crop_list.append(r)
