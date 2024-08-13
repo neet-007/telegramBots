@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from dotenv import load_dotenv
 from os import getenv
 import telegram
@@ -210,17 +211,103 @@ async def handle_wilty_mod_statement_message(update: telegram.Update, context: t
     await context.bot.send_message(text=f"the statement is {game.curr_statement.capitalize()} the accussed is {accussed}",
                                    chat_id=chat_id)
 
+async def handle_wilty_round_vote_message(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
+    if not update.effective_chat:
+        return
+
+    game:Wilty = games["wilty"].get(update.effective_chat.id, None)
+    if game == None:
+        return
+
+    options = ["true", "false"]
+    message = await context.bot.send_poll(chat_id=update.effective_chat.id, question="is he lying",
+                                options=options, is_anonymous=False, allows_multiple_answers=False)
+
+    poll_data = {
+        "chat_id":update.effective_chat.id,
+        "question":"is he lying",
+        "options":options,
+        "message_id":message.message_id,
+        "answers":[]
+    }
+
+    context.bot_data[message.poll.id] = poll_data
 
 async def handle_wilty_round_vote(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
-    return
+    if not update.poll_answer or not update.poll or not update.poll.options or not update.effective_chat or not update.effective_user:
+        return
 
-async def handle_wilty_end_round(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
-    return
+
+    game:Wilty = games["wilty"].get(update.effective_chat.id, None)
+    if game == None:
+        return
+
+    answer = update.poll_answer
+    if not answer.user:
+        return
+
+    if answer.user.id == game.curr_mod_id or answer.user.id == game.players[game.players_ids[game.curr_player_idx]].id:
+        return
+
+    poll_data = context.bot_data.get(answer.poll_id, None)
+    if poll_data == None:
+        return
+
+    try:
+        answers = poll_data["answers"]
+    except KeyError:
+        return
+
+    if answer.user.id in answers:
+        return
+
+    chat_id = poll_data["chad_id"]
+    answers.append(answer.user.id)
+    await context.bot.send_message(text=f"player {answer.user.mention_html()} voted", chat_id=chat_id, parse_mode=telegram.constants.ParseMode.HTML)
+
+    if len(answers) == game.num_players - 2:
+        context.bot_data.clear()
+        context.bot_data["options"] = update.poll.options
+        await handle_wilty_end_round(update, context, chat_id)
+        return await context.bot.stop_poll(chat_id=chat_id, message_id=poll_data["message_id"])
+
+async def handle_wilty_end_round(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE, chat_id:int):
+    game:Wilty = games["wilty"].get(chat_id, None)
+    if game == None:
+        return
+    try:
+        options = context.bot_data["options"]
+    except KeyError:
+        return
+
+    votes = [0, 0]
+    for option in options:
+        if option.text == "false":
+            votes[0] += 1
+        else:
+            votes[1] += 1
+
+    err, players_won, next_state = game.__end_round(votes=tuple(votes))
+    if err:
+        return await context.bot.send_message(text="an error happend", chat_id=chat_id)
+
+    if players_won:
+        await context.bot.send_message(text="you were rigth you got it right", chat_id=chat_id)
+    else:
+        await context.bot.send_message(text=f"you were wrong {game.players[game.players_ids[game.curr_player_idx]].mention_html()}", chat_id=chat_id)
+
+    if next_state == "end_game":
+        return await handle_wilty_end_game(update, context)
+    elif next_state == "end_round_type":
+        pass
+    elif next_state == "continue_round":
+        await context.bot.send_message(text=f"the next accussed is f{game.players[game.players_ids[game.curr_player_idx]].metion_html()}",
+                                       chat_id=chat_id, parse_mode=telegram.constants.ParseMode.HTML)
+    else:
+        await context.bot.send_message(text="an error happend", chat_id=chat_id)
 
 async def handle_wilty_end_game(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
     return
-
-
 
 def main():
     if not BOT_API_TOKEN:

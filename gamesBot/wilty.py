@@ -112,11 +112,11 @@ class Wilty():
         self.state = 4
         self.mod_statement = mode_statement.lower()
 
-    def __end_round(self, votes:tuple[int, int]):
-        if self.state != 4 or sum(votes) != self.num_players - 2:
+    def __end_round(self, votes) -> tuple[bool, bool, str]:
+        if self.state != 4:
             return False, False, "end_game"
     
-        return_val = True, True
+        return_val = True, True, ""
         if votes[0] > votes[1]:
             if self.mod_statement == self.curr_statement:
                 return_val =  True, False
