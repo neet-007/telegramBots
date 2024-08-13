@@ -14,6 +14,7 @@ class Wilty():
         self.round_type = "none"
         self.mod_statement = ""
         self.curr_statement = ""
+        self.statements = dict()
 
     def __join_game(self, player:User):
         if self.state != 0:
@@ -39,12 +40,19 @@ class Wilty():
 
         return True, self.players.get(self.curr_mod_id, None), self.players.get(self.players_ids[self.curr_player_idx], None)
 
-    def __set_players_statements(self, statements:dict[int, list[str]]):
-        if self.state != 1:
+    def __add_player_statements(self, player_id:int, statements:list[str]):
+        if len(statements) != 4:
+            return False
+
+        self.statements[player_id] = statements
+        return True
+
+    def __set_players_statements(self):
+        if self.state != 1 or len(self.statements) != self.num_players:
             return False
 
         return_val = True
-        for player, statement in statements.items():
+        for player, statement in self.statements.items():
             if len(statement) != 4:
                 return_val = False
                 break
@@ -92,11 +100,11 @@ class Wilty():
 
     def __start_round(self):
         if self.state != 2:
-            return False
-        state = self.__update_game_state()
+            return False, "", None, None
+        state, _ = self.__update_game_state()
         if state:
             self.state = 3
-        return state,self.round_type, self.players[self.curr_mod_id], self.players[self.players_ids[self.curr_player_idx]]
+        return state, self.round_type, self.players.get(self.curr_mod_id, None), self.players.get(self.players_ids[self.curr_player_idx], None)
     
     def __set_mod_state(self,mode_statement:str):
         if self.state != 3:
