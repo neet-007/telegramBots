@@ -297,17 +297,36 @@ async def handle_wilty_end_round(update: telegram.Update, context: telegram.ext.
         await context.bot.send_message(text=f"you were wrong {game.players[game.players_ids[game.curr_player_idx]].mention_html()}", chat_id=chat_id)
 
     if next_state == "end_game":
-        return await handle_wilty_end_game(update, context)
-    elif next_state == "end_round_type":
-        pass
-    elif next_state == "continue_round":
-        await context.bot.send_message(text=f"the next accussed is f{game.players[game.players_ids[game.curr_player_idx]].metion_html()}",
-                                       chat_id=chat_id, parse_mode=telegram.constants.ParseMode.HTML)
+        return await handle_wilty_end_game(update, context, chat_id)
+
+    if next_state == "end_round_type":
+        await context.bot.send_message(text=f"""round {game.round_type} started the mod is {game.players[game.curr_mod_id].metion_html()} you are questioning player {game.players[game.players_ids[game.curr_player_idx]].mention_html()}\n
+                                            the mod {game.players[game.curr_mod_id].mention_html()} will make the statement now""", chat_id=chat_id)
+        await context.bot.send_message(text="make your statement", chat_id=game.curr_mod_id)
+        return
+
+    if next_state == "continue_round":
+        await context.bot.send_message(text=f"""you are questioning player {game.players[game.players_ids[game.curr_player_idx]].mention_html()}\n
+                                            the mod {game.players[game.curr_mod_id].mention_html()} will make the statement now""", chat_id=chat_id)
+        await context.bot.send_message(text="make your statement", chat_id=game.curr_mod_id)
+        return
     else:
         await context.bot.send_message(text="an error happend", chat_id=chat_id)
+        del games["wilty"][chat_id]
 
-async def handle_wilty_end_game(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
-    return
+async def handle_wilty_end_game(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE, chat_id:int):
+    game:Wilty = games["wilty"].get(chat_id, None)
+    if game == None:
+        return
+
+    scores = game.__get_scores()
+    del games["wilty"][chat_id]
+
+    text = ""
+    for player, score in scores.items():
+        text += f"{player}: {score}\n"
+
+    await context.bot.send_message(text=f"scores:\n {text}", chat_id=chat_id)
 
 def main():
     if not BOT_API_TOKEN:
