@@ -21,6 +21,14 @@ def remove_jobs(name:str, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
     for job in jobs:
         job.schedule_removal()
 
+def format_teams(teams:list[tuple[telegram.User, dict[str, str]]]):
+    text = ""
+    for player, team in teams:
+        players_list = [f"{pos}:{name}\n" for pos, name in team.items()]
+        players_list = "".join(players_list)
+        text += f"{player.mention_html()}\n{players_list}"
+    return text
+
 games = {
     "wilty":{},
     "guess_the_player":{},
@@ -160,7 +168,7 @@ class Draft():
             elif vote_count == max_vote:
                 max_vote_ids.append(id)
 
-        return [self.players[x][0] for x in max_vote_ids]
+        return [self.players[x] for x in max_vote_ids]
 
 async def handle_draft_command(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.effective_chat or not context.job_queue:
@@ -387,6 +395,9 @@ async def handle_draft_add_pos(update: telegram.Update, context: telegram.ext.Co
         data = {"game_id":update.effective_chat.id, "time":datetime.now()}
         context.job_queue.run_repeating(handle_draft_reapting_votes_job, interval=20, first=10, data=data, chat_id=update.effective_chat.id, name="draft_reapting_votes_job")
         context.job_queue.run_once(handle_draft_set_votes_job, when=30, data=data, chat_id=update.effective_chat.id, name="draft_set_votes_job")
+        teams = [(player[0], player[1]) for player in game.players.values()]
+        teams = format_teams(teams)
+        await context.bot.send_message(text=f"the teams\n{teams}", chat_id=update.effective_chat.id)
         await context.bot.send_message(text="the drafting has ended discuss the teams for 3 minutes then vote for the best", chat_id=update.effective_chat.id)
         return
     else:
@@ -529,12 +540,12 @@ async def handle_draft_end_game_job(context: telegram.ext.ContextTypes.DEFAULT_T
     print("found votes")
     winners = game.end_game(votes=votes)
     winners_text = ""
-    print(winners)
+    teams = []
     for winner in winners:
-        print(winner)
-        winners_text += f"{winner.mention_html()}\n"
-
-    await context.bot.send_message(text=f"the winners are {winners_text}", chat_id=context.job.chat_id, parse_mode=telegram.constants.ParseMode.HTML)
+        winners_text += f"{winner[0].mention_html()}\n"
+        teams.append((winner[0], winner[1]))
+    teams = format_teams(teams)
+    await context.bot.send_message(text=f"the winners are {winners_text}\n the teams\n{teams}", chat_id=context.job.chat_id, parse_mode=telegram.constants.ParseMode.HTML)
 
 async def handle_draft_cancel_game(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
     if not update.effective_chat or not update.message:
