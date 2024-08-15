@@ -5,7 +5,7 @@ import telegram
 import telegram.ext
 from wilty import Wilty
 from guess_the_player import GuessThePlayer
-from draft import Draft
+from draft import Draft, start_draft_game_command_handler,  new_draft_game_command_handler, join_draft_game_command_handler, set_draft_game_state_command_handler, cancel_draft_game_command_handler, vote_recive_poll_answer_handler, position_draft_message_handler
 
 load_dotenv()
 
@@ -40,6 +40,13 @@ def main():
         return
 
     application = telegram.ext.Application.builder().token(BOT_API_TOKEN).build()
+    application.add_handler(new_draft_game_command_handler)
+    application.add_handler(join_draft_game_command_handler)
+    application.add_handler(start_draft_game_command_handler)
+    application.add_handler(set_draft_game_state_command_handler)
+    application.add_handler(cancel_draft_game_command_handler)
+    application.add_handler(position_draft_message_handler)
+    application.add_handler(vote_recive_poll_answer_handler)
 
     application.run_polling()
 

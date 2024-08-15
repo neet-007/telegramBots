@@ -7,6 +7,10 @@ from telegram._inline.inlinekeyboardbutton import InlineKeyboardButton
 from telegram._inline.inlinekeyboardmarkup import InlineKeyboardMarkup
 import telegram.ext
 from datetime import datetime
+
+from telegram.ext._handlers.commandhandler import CommandHandler
+from telegram.ext._handlers.messagehandler import MessageHandler
+from telegram.ext._handlers.pollanswerhandler import PollAnswerHandler
 from main import games, remove_jobs
 
 FORMATIONS = {
@@ -467,5 +471,30 @@ async def handle_draft_end_game_job(context: telegram.ext.ContextTypes.DEFAULT_T
 
     await context.bot.send_message(text=f"the winners are {winners_text}", chat_id=context.job.chat_id)
 
+async def handle_draft_cancel_game(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
+    if not update.effective_chat or not update.message:
+        return
 
+    if not update.effective_chat.id in games["draft"]:
+        return await update.message.reply_text("there is no game")
+
+    remove_jobs("draft_reapting_votes_job", context)
+    remove_jobs("draft_reapting_end_votes_job", context)
+    remove_jobs("draft_end_votes_job", context)
+    remove_jobs("draft_set_votes_job", context)
+    remove_jobs("draft_reapting_join_job", context)
+    remove_jobs("draft_start_game_job", context)
+    remove_jobs("draft_reapting_statement_job", context)
+    remove_jobs("draft_set_statement_command_job", context)
+    del games["draft"][update.effective_chat.id]
+
+    await update.message.reply_text("game has been canceled")
+
+new_draft_game_command_handler = CommandHandler("new_draft", handle_draft_command)
+join_draft_game_command_handler = CommandHandler("join_draft", handle_draft_join_command)
+start_draft_game_command_handler = CommandHandler("start_draft", handle_draft_start_game_command)
+set_draft_game_state_command_handler = CommandHandler("set_draft_state", handle_draft_set_state_command)
+cancel_draft_game_command_handler = CommandHandler("cancel_draft", handle_draft_cancel_game)
+position_draft_message_handler = MessageHandler((telegram.ext.filters.TEXT & ~telegram.ext.filters.COMMAND), handle_draft_add_pos)
+vote_recive_poll_answer_handler = PollAnswerHandler(handle_draft_vote_recive)
 
