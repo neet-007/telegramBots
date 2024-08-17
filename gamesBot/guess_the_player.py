@@ -56,8 +56,8 @@ class GuessThePlayer:
         if curr_hints == ["", "", ""] or curr_answer == "":
             return False, "empty inputs"
 
-        self.curr_answer = curr_answer.strip()
-        self.curr_hints = [hint.strip() for hint in curr_hints]
+        self.curr_answer = curr_answer.strip().lower()
+        self.curr_hints = [hint.strip().capitalize() for hint in curr_hints]
         self.state = 2
 
         return True, ""
@@ -104,8 +104,9 @@ class GuessThePlayer:
         if player_[2] == 0:
             self.muted_players.append(player.id)
 
-        if answer.lower() == self.curr_answer:
+        if answer.strip().lower() == self.curr_answer:
             self.state = 3
+            self.winner_id = player.id
             return True, "correct"
 
         if len(self.muted_players) == self.num_players - 1:
@@ -113,7 +114,6 @@ class GuessThePlayer:
             self.winner_id = -1
             return True, "all players muted"
 
-        self.winner_id = player.id
         return True, "false"
 
     def end_round(self):
@@ -143,6 +143,16 @@ class GuessThePlayer:
 
     def end_game(self):
         scores = {player[0]:player[3] for player in self.players.values()}
+        winners = ""
+        max_score = float('-inf')
+        for player, score in scores.items():
+            if score == max_score:
+                winners += f"{player.mention_html()}\n"
+            if score > max_score:
+                max_score = score
+                winners = ""
+                winners += f"{player.mention_html()}\n"
+
         self.players = {}
         self.curr_hints = ["", "", ""]
         self.curr_answer = ""
@@ -151,7 +161,7 @@ class GuessThePlayer:
         self.muted_players = []
         self.asked_questions = {}
         self.winner_id = -1
-        return scores
+        return scores, winners
 
 games = {"guess_the_player":{}}
 
@@ -324,8 +334,8 @@ async def handle_guess_the_player_start_round(update: telegram.Update, context: 
             del context.bot_data[update.effective_user.id]
             return await update.message.reply_text("game error game aborted")
 
-    text = "\n".join(game.curr_hints)
-    await context.bot.send_message(text=f"the curr hints are {text} every player has 3 questions and 2 treis", chat_id=chat_id)
+    text = "\n".join([f"{index}. {hint}" for index, hint in enumerate(game.curr_hints, start=1)])
+    await context.bot.send_message(text=f"the curr hints are\n{text}\n every player has 3 questions and 2 treis", chat_id=chat_id)
 
 async def handle_guess_the_player_ask_question_command(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text or not update.effective_chat or not update.effective_user or not context.job_queue:
@@ -379,7 +389,7 @@ async def handle_guess_the_player_proccess_answer_command(update: telegram.Updat
         return await update.message.reply_text("there is no game start one first /new_guess_the_player")
 
     print("game found")
-    res, err = game.proccess_answer(player=update.effective_user, answer=update.message.text.replace("/guess_the_player_answer", "").lower().strip())
+    res, err = game.proccess_answer(player=update.effective_user, answer=update.message.text.replace("/answer_player_guess_the_player", "").lower().strip())
     if not res:
         if err == "game error":
             return await update.message.reply_text("game error game aborted")
@@ -446,12 +456,12 @@ async def handle_guess_the_player_end_game_job(context: telegram.ext.ContextType
 
     print("game found")
     del games["guess_the_player"][context.job.chat_id]
-    scores = game.end_game()
+    scores, winners = game.end_game()
     text = ""
     for player, score in scores.items():
         text += f"{player.mention_html()}:{score}\n"
 
-    return await context.bot.send_message(text=text, chat_id=context.job.chat_id, parse_mode=telegram.constants.ParseMode.HTML)
+    return await context.bot.send_message(text=f"scores:\n{text}\nwinners:\n{winners}", chat_id=context.job.chat_id, parse_mode=telegram.constants.ParseMode.HTML)
 
 async def handle_guess_the_player_cancel_game(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.effective_chat:
