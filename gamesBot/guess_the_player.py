@@ -3,229 +3,19 @@ import telegram
 from telegram._inline.inlinekeyboardbutton import InlineKeyboardButton
 from telegram._inline.inlinekeyboardmarkup import InlineKeyboardMarkup
 import telegram.ext
-from random import shuffle
-
 from telegram.ext._handlers.callbackqueryhandler import CallbackQueryHandler
+from shared import Draft, Wilty, games, GuessThePlayer, remove_jobs
 from telegram.ext._handlers.commandhandler import CommandHandler
 from telegram.ext._handlers.messagehandler import MessageHandler
 
-
-PLAYERS_COUNT = 2
-
-class GuessThePlayer:
-    def __init__(self) -> None:
-        self.players = {}
-        self.muted_players:list[int] = []
-        self.players_ids:list[int] = []
-        self.curr_player_idx:int = -1
-        self.num_players:int = 0 
-        self.curr_hints:list[str] = ["","","",]
-        self.curr_answer:str = ""
-        self.curr_asking_player:int = -1
-        self.curr_question = ""
-        self.asked_questions = {}
-        self.state:int = 0
-        self.winner_id:int = -1
-
-    def join_game(self, player:telegram.User):
-        if self.state != 0:
-            return False
-        if player.id in self.players:
-            return False
-        self.num_players += 1
-        self.players[player.id] = [player, 3, 3, 0]
-        self.players_ids.append(player.id)
-        return True
-
-    def leave_game(self, player:telegram.User):
-        try:
-            del self.players[player.id]
-        except KeyError:
-            return False, "player not in game error"
-
-        self.num_players -= 1
-        idx = self.players_ids.index(player.id)
-        self.players_ids.remove(player.id)
-        if player.id in self.muted_players:
-            self.muted_players.remove(player.id)
-
-        if self.num_players == 1:
-            self.state = 4
-            self.winner_id = -2
-            return False, "end game"
-            
-        if len(self.muted_players) == self.num_players or self.curr_player_idx == idx:
-            self.winner_id = -2
-            self.state = 3
-            return False, "end round"
-
-        return True, ""
-
-    def start_game(self):
-        if self.state != 0:
-            return False, "game error"
-        if self.num_players < PLAYERS_COUNT:
-            return False, "num players error"
-    
-        shuffle(self.players_ids)
-        self.curr_player_idx = 0
-        self.state = 1
-        return True, ""
-
-    def start_round(self, player: telegram.User, curr_hints:list[str], curr_answer:str):
-        if self.state != 1 and self.state != 3:
-            return False, "game error"
-        if len(curr_hints) != 3:
-            return False, "num hints error"
-        if self.players[self.players_ids[self.curr_player_idx]][0].id != player.id:
-            return False, "curr player error"
-        if curr_hints == ["", "", ""] or curr_answer == "":
-            return False, "empty inputs"
-
-        self.curr_answer = curr_answer.strip().lower()
-        self.curr_hints = [hint.strip().capitalize() for hint in curr_hints]
-        self.state = 2
-
-        return True, ""
-
-    def ask_question(self, player:telegram.User, question:str):
-        if self.state != 2:
-            return False, "game_error"
-
-        if self.curr_asking_player != -1:
-            return False, "there is askin player error"
-
-        if self.players[self.players_ids[self.curr_player_idx]][0].id == player.id:
-            return False, "curr player error"
-
-        if self.players[player.id][1] <= 0:
-            return False, "no questions"
-
-        self.curr_question = question.lower().strip()
-        self.curr_asking_player = player.id
-        return True, ""
-
-    def answer_question(self, player:telegram.User, player_asked:telegram.User, question:str, answer:str):
-        if self.state != 2:
-            return False, "game error"
-    
-        if self.curr_asking_player == -1:
-            return False, "no asking player error"
-
-        if self.curr_asking_player != player_asked.id:
-            return False, "player is not the asking error"
-
-        question = question.lower().strip()
-        if self.curr_question != question:
-            return False, "not the question"
-
-        if self.players[self.players_ids[self.curr_player_idx]][0].id != player.id:
-            return False, "curr player error"
-
-        self.asked_questions[question] = answer.lower().strip()
-        self.players[self.curr_asking_player][1] -= 1
-        self.curr_asking_player = -1
-        self.curr_question = ""
-
-        return True, ""
-
-    def proccess_answer(self, player:telegram.User, answer:str):
-        if self.state != 2:
-            return False, "game error"
-
-        if self.players[self.players_ids[self.curr_player_idx]][0].id == player.id:
-            return False, "curr player error"
-
-        player_ = self.players[player.id]
-        if player.id in self.muted_players:
-            return False, "muted player"
-
-        player_[2] -= 1
-        if player_[2] == 0:
-            self.muted_players.append(player.id)
-
-        if answer.strip().lower() == self.curr_answer:
-            self.state = 3
-            self.winner_id = player.id
-            return True, "correct"
-
-        if len(self.muted_players) == self.num_players - 1:
-            self.state = 3
-            self.winner_id = -1
-            return True, "all players muted"
-
-        return True, "false"
-
-    def end_round(self):
-        if self.state != 3:
-            return False, "game error"
-
-        if self.winner_id == -1:
-            self.players[self.players_ids[self.curr_player_idx]][3] += 1
-        elif self.winner_id == -2:
-            pass
-        else: 
-            self.players[self.winner_id][3] += 1
-
-        self.curr_hints = ["","","",]
-        for id, player in self.players.items():
-            self.players[id] = [player[0], 3, 3, player[3]]
-        self.curr_answer = ""
-        self.winner_id = -1
-        self.asked_questions = {}
-        self.muted_players = []
-        self.curr_state = 2
-
-        self.curr_player_idx += 1
-        if self.curr_player_idx == self.num_players:
-            self.state = 4
-            return True, "game end"
-
-        return True, "round end"
-
-    def end_game(self):
-        scores = {player[0]:player[3] for player in self.players.values()}
-        winners = ""
-        max_score = float('-inf')
-        for player, score in scores.items():
-            if score == max_score:
-                winners += f"{player.mention_html()}\n"
-            if score > max_score:
-                max_score = score
-                winners = ""
-                winners += f"{player.mention_html()}\n"
-
-        self.players = {}
-        self.curr_hints = ["", "", ""]
-        self.curr_answer = ""
-        self.curr_player_idx = -1
-        self.state = 0
-        self.muted_players = []
-        self.asked_questions = {}
-        self.winner_id = -1
-        return scores, winners
-
-games = {"guess_the_player":{}}
-
-def remove_jobs(name:str, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
-    if not context.job_queue:
-        return
-
-    jobs = context.job_queue.get_jobs_by_name(name)
-    if not jobs:
-        return
-
-    for job in jobs:
-        job.schedule_removal()
-    
 async def handle_guess_the_player_new_game(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.effective_chat or not context.job_queue:
         return
 
-    if update.effective_chat.id in games["guess_the_player"]:
+    if update.effective_chat.id in games:
         return await update.message.reply_text("a game has already started")
 
-    games["guess_the_player"][update.effective_chat.id] = GuessThePlayer()
+    games[update.effective_chat.id] = GuessThePlayer()
     
     data = {"chat_id":update.effective_chat.id, "time":datetime.now()}
     context.job_queue.run_repeating(handle_guess_the_player_reapting_join_job, data=data, interval=20, first=10,
@@ -240,9 +30,11 @@ async def handle_guess_the_player_join_command(update: telegram.Update, context:
     if not update.message or not update.effective_chat or not update.effective_user:
         return
 
-    game:GuessThePlayer = games["guess_the_player"].get(update.effective_chat.id, None)
+    game:GuessThePlayer | Draft | Wilty | None = games.get(update.effective_chat.id, None)
     if game == None:
         return await update.message.reply_text("there is no game start one first /new_guess_the_player")
+    if not isinstance(game, GuessThePlayer):
+        return await update.message.reply_text("there is a game of differant type running")
 
     res = game.join_game(player=update.effective_user)
     if not res:
@@ -256,9 +48,11 @@ async def handle_guess_the_player_reapting_join_job(context: telegram.ext.Contex
     if not context.job or not context.job.chat_id or not isinstance(context.job.data, dict):
         return
 
-    game:GuessThePlayer = games["guess_the_player"].get(context.job.data["chat_id"], None)
-    if not game or game.state != 0:
-        return
+    game:GuessThePlayer | Draft | Wilty | None = games.get(context.job.chat_id, None)
+    if game == None:
+        return await context.bot.send_message(text="there is no game start one first /new_guess_the_player", chat_id=context.job.chat_id)
+    if not isinstance(game, GuessThePlayer):
+        return await context.bot.send_message(text="there is a game of differant type running", chat_id=context.job.chat_id)
 
     await context.bot.send_message(chat_id=context.job.chat_id, text=f"reaming time to join {round((context.job.data['time'] - datetime.now()).seconds)}")
 
@@ -269,9 +63,11 @@ async def handle_guess_the_player_join_game_callback(update: telegram.Update, co
     q = update.callback_query
     await q.answer()
 
-    game:GuessThePlayer = games["guess_the_player"].get(update.effective_chat.id, None)
+    game:GuessThePlayer | Draft | Wilty | None = games.get(update.effective_chat.id, None)
     if game == None:
-        return await context.bot.send_message(text="no game found please make game first /new_guess_the_player", chat_id=update.effective_chat.id)
+        return await context.bot.send_message(text="there is no game start one first /new_guess_the_player", chat_id=update.effective_chat.id)
+    if not isinstance(game, GuessThePlayer):
+        return await context.bot.send_message(text="there is a game of differant type running", chat_id=update.effective_chat.id)
 
     res = game.join_game(player=update.effective_user)
     if not res:
@@ -285,14 +81,14 @@ async def handle_guess_the_player_start_game_job(context: telegram.ext.ContextTy
     if not context.job or not context.job.chat_id or not isinstance(context.job.data, dict):
         return
 
-    game:GuessThePlayer = games["guess_the_player"].get(context.job.data["chat_id"], None)
-    if not game or game.state != 0:
+    game:GuessThePlayer | Draft | Wilty | None = games.get(context.job.chat_id, None)
+    if game == None or not isinstance(game, GuessThePlayer) or game.state != 0:
         return
 
     remove_jobs("guess_the_player_reapting_join_job", context)
     res, err = game.start_game()
     if not res:
-        del games["guess_the_player"][context.job.chat_id]
+        del games[context.job.chat_id]
         if err == "game error":
             return await context.bot.send_message(text="game error game aborted", chat_id=context.job.chat_id)
         if err == "num players error":
@@ -309,15 +105,17 @@ async def handle_guess_the_player_start_game_command(update: telegram.Update, co
     if not update.message or not update.effective_chat:
         return
 
-    game:GuessThePlayer = games["guess_the_player"].get(update.effective_chat.id, None)
+    game:GuessThePlayer | Draft | Wilty | None = games.get(update.effective_chat.id, None)
     if game == None:
         return await update.message.reply_text("there is no game start one first /new_guess_the_player")
+    if not isinstance(game, GuessThePlayer):
+        return await update.message.reply_text("there is a game of differant type running")
 
     remove_jobs("guess_the_player_reapting_join_job", context)
     remove_jobs("guess_the_player_start_game_job", context)
     res, err = game.start_game()
     if not res:
-        del games["guess_the_player"][update.effective_chat.id]
+        del games[update.effective_chat.id]
         if err == "game error":
             return 
         if err == "num players error":
@@ -342,10 +140,11 @@ async def handle_guess_the_player_start_round(update: telegram.Update, context: 
         return
 
     print("chat found")
-    game:GuessThePlayer = games["guess_the_player"].get(chat_id, None)
+    game:GuessThePlayer | Draft | Wilty | None = games.get(chat_id, None)
     if game == None:
-        del context.bot_data[update.effective_user.id]
-        return await update.message.reply_text("use this bot at a group")
+        return await update.message.reply_text("create game at a group first")
+    if not isinstance(game, GuessThePlayer):
+        return await update.message.reply_text("there is a game of differant type running")
 
     print("game found")
     if game.state != 1 and game.state != 3:
@@ -381,9 +180,12 @@ async def handle_guess_the_player_ask_question_command(update: telegram.Update, 
     if not update.message or not update.message.text or not update.effective_chat or not update.effective_user or not context.job_queue or not update.message.text:
         return
 
-    game:GuessThePlayer = games["guess_the_player"].get(update.effective_chat.id, None)
+    game:GuessThePlayer | Draft | Wilty | None = games.get(update.effective_chat.id, None)
     if game == None:
         return await update.message.reply_text("there is no game start one first /new_guess_the_player")
+    if not isinstance(game, GuessThePlayer):
+        return await update.message.reply_text("there is a game of differant type running")
+
     update.message.text.replace("/guess_the_player_ask_q", "").lower().strip()
     res, err = game.ask_question(player=update.effective_user, question=update.message.text.replace("/ask_q_guess_the_player", ""))
     if not res:
@@ -404,9 +206,11 @@ async def handle_guess_the_player_answer_question_command(update: telegram.Updat
     if not update.message or not update.message.reply_to_message or not update.message.reply_to_message.from_user or not update.message.text or not update.effective_chat or not update.effective_user or not context.job_queue or not update.message.reply_to_message.text:
         return
 
-    game:GuessThePlayer = games["guess_the_player"].get(update.effective_chat.id, None)
+    game:GuessThePlayer | Draft | Wilty | None = games.get(update.effective_chat.id, None)
     if game == None:
         return await update.message.reply_text("there is no game start one first /new_guess_the_player")
+    if not isinstance(game, GuessThePlayer):
+        return await update.message.reply_text("there is a game of differant type running")
 
     res, err = game.answer_question(player=update.effective_user, player_asked=update.message.reply_to_message.from_user,
                                     question=update.message.reply_to_message.text.replace("/ask_q_guess_the_player", ""),
@@ -429,13 +233,20 @@ async def handle_guess_the_player_answer_question_command(update: telegram.Updat
 
 async def handle_guess_the_player_proccess_answer_command(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
     print("proccessa answer")
+    if update.effective_chat.type == "private":
+        return await handle_guess_the_player_start_round(update, context)
     if not update.message or not update.message.text or not update.effective_chat or not update.effective_user or not context.job_queue:
         return
 
     print("if passed")
-    game:GuessThePlayer = games["guess_the_player"].get(update.effective_chat.id, None)
+    game:GuessThePlayer | Draft | Wilty | None = games.get(update.effective_chat.id, None)
     if game == None:
         return await update.message.reply_text("there is no game start one first /new_guess_the_player")
+    if not isinstance(game, GuessThePlayer):
+        return await update.message.reply_text("there is a game of differant type running")
+
+    if game.state != 2:
+        return
 
     print("game found")
     res, err = game.proccess_answer(player=update.effective_user, answer=update.message.text.replace("/answer_player_guess_the_player", "").lower().strip())
@@ -467,9 +278,11 @@ async def handle_guess_the_player_end_round_job(context: telegram.ext.ContextTyp
         return
 
     print("if passed")
-    game:GuessThePlayer = games["guess_the_player"].get(context.job.chat_id, None)
+    game:GuessThePlayer | Draft | Wilty | None = games.get(context.job.chat_id, None)
     if game == None:
         return await context.bot.send_message(text="there is no game start one first /new_guess_the_player", chat_id=context.job.chat_id)
+    if not isinstance(game, GuessThePlayer):
+        return await context.bot.send_message(text="there is a game of differant type running", chat_id=context.job.chat_id)
 
     print("game found")
     res, err = game.end_round()
@@ -499,12 +312,14 @@ async def handle_guess_the_player_end_game_job(context: telegram.ext.ContextType
         return
 
     print("if passed")
-    game:GuessThePlayer = games["guess_the_player"].get(context.job.chat_id, None)
+    game:GuessThePlayer | Draft | Wilty | None = games.get(context.job.chat_id, None)
     if game == None:
         return await context.bot.send_message(text="there is no game start one first /new_guess_the_player", chat_id=context.job.chat_id)
-
+    if not isinstance(game, GuessThePlayer):
+        return await context.bot.send_message(text="there is a game of differant type running", chat_id=context.job.chat_id)
+        
     print("game found")
-    del games["guess_the_player"][context.job.chat_id]
+    del games[context.job.chat_id]
     scores, winners = game.end_game()
     text = ""
     for player, score in scores.items():
@@ -516,9 +331,11 @@ async def handle_guess_the_player_leave_game(update: telegram.Update, context: t
     if not update.message or not update.effective_chat or not update.effective_user or not context.job_queue:
         return
 
-    game:GuessThePlayer = games["guess_the_player"].get(update.effective_chat.id, None)
+    game:GuessThePlayer | Draft | Wilty | None = games.get(update.effective_chat.id, None)
     if game == None:
         return await update.message.reply_text("there is no game start one first /new_guess_the_player")
+    if not isinstance(game, GuessThePlayer):
+        return await update.message.reply_text("there is a game of differant type running")
 
     res, err = game.leave_game(player=update.effective_user)
     if not res:
@@ -537,11 +354,13 @@ async def handle_guess_the_player_cancel_game(update: telegram.Update, context: 
     if not update.message or not update.effective_chat:
         return
 
-    game:GuessThePlayer = games["guess_the_player"].get(update.effective_chat.id, None)
+    game:GuessThePlayer | Draft | Wilty | None = games.get(update.effective_chat.id, None)
     if game == None:
         return await update.message.reply_text("there is no game start one first /new_guess_the_player")
+    if not isinstance(game, GuessThePlayer):
+        return await update.message.reply_text("there is a game of differant type running")
 
-    del games["guess_the_player"][update.effective_chat.id]
+    del games[update.effective_chat.id]
     remove_jobs("guess_the_player_reapting_join_job", context)
     remove_jobs("guess_the_player_start_game_job", context)
     remove_jobs("guess_the_player_end_round_job", context)
@@ -552,9 +371,11 @@ async def handle_guess_the_player_get_questions(update: telegram.Update, context
     if not update.message or not update.effective_chat:
         return
 
-    game:GuessThePlayer = games["guess_the_player"].get(update.effective_chat.id, None)
+    game:GuessThePlayer | Draft | Wilty | None = games.get(update.effective_chat.id, None)
     if game == None:
         return await update.message.reply_text("there is no game start one first /new_guess_the_player")
+    if not isinstance(game, GuessThePlayer):
+        return await update.message.reply_text("there is a game of differant type running")
 
     questions = game.asked_questions
     if not questions:
@@ -566,19 +387,20 @@ async def handle_guess_the_player_get_questions(update: telegram.Update, context
 
     await update.message.reply_text(f"the questions are\n{text}")
 
+        
+
 guess_the_player_new_game_command_handler = CommandHandler("new_guess_the_player", handle_guess_the_player_new_game)
 guess_the_player_join_game_command_handler = CommandHandler("join_guess_the_player", handle_guess_the_player_join_command)
 guess_the_player_start_game_command_handler = CommandHandler("start_game_guess_the_player", handle_guess_the_player_start_game_command)
 guess_the_player_ask_question_command_handler = CommandHandler("ask_q_guess_the_player", handle_guess_the_player_ask_question_command)
-#guess_the_player_answer_question_command_handler = CommandHandler("answer_q_guess_the_player", handle_guess_the_player_answer_question_command)
-guess_the_player_proccess_answer_command_handler = CommandHandler("answer_player_guess_the_player", handle_guess_the_player_proccess_answer_command)
+guess_the_player_proccess_answer_command_handler = MessageHandler((telegram.ext.filters.TEXT & ~ telegram.ext.filters.COMMAND), handle_guess_the_player_proccess_answer_command)
 guess_the_player_leave_game_command_handler = CommandHandler("leave_game_guess_the_player", handle_guess_the_player_leave_game)
 guess_the_player_cancel_game_command_handler = CommandHandler("cancel_guess_the_player", handle_guess_the_player_cancel_game)
-guess_thE_player_get_questions_command_handler = CommandHandler("get_question_guess_the_player", handle_guess_the_player_get_questions)
+guess_thE_player_get_questions_command_handler = CommandHandler("get_questions_guess_the_player", handle_guess_the_player_get_questions)
 guess_the_player_answer_question_command_handler = MessageHandler((telegram.ext.filters.TEXT & telegram.ext.filters.REPLY & ~ telegram.ext.filters.COMMAND),
                                                                   handle_guess_the_player_answer_question_command)
 guess_the_player_start_round_command_handler = MessageHandler((telegram.ext.filters.TEXT & ~telegram.ext.filters.REPLY &~ telegram.ext.filters.COMMAND),
-                                                              handle_guess_the_player_start_round)
+                                                             handle_guess_the_player_start_round)
 guess_the_player_join_game_callback_handler = CallbackQueryHandler(handle_guess_the_player_join_game_callback, pattern="^guess_the_player_join$")
 
 
