@@ -7,7 +7,7 @@ from telegram.ext._handlers.callbackqueryhandler import CallbackQueryHandler
 from telegram.ext._handlers.commandhandler import CommandHandler
 from telegram.ext._handlers.messagehandler import MessageHandler
 from telegram.ext._handlers.pollanswerhandler import PollAnswerHandler
-from shared import games, Draft, remove_jobs
+from shared import GuessThePlayer, Wilty, games, Draft, remove_jobs
 
 def format_teams(teams:list[tuple[telegram.User, dict[str, str]]]):
     text = ""
@@ -21,10 +21,10 @@ async def handle_draft_command(update: telegram.Update, context: telegram.ext.Co
     if not update.message or not update.effective_chat or not context.job_queue:
         return
 
-    if update.effective_chat.id in games["draft"]:
+    if update.effective_chat.id in games:
         return await update.message.reply_text("a game has already started")
 
-    games["draft"][update.effective_chat.id] = Draft()
+    games[update.effective_chat.id] = Draft()
 
     data = {"game_id":update.effective_chat.id, "time":datetime.now()}
     context.job_queue.run_repeating(handle_draft_reapting_join_job, interval=20, first=10, data=data, chat_id=update.effective_chat.id, name="draft_reapting_join_job")
@@ -38,8 +38,8 @@ async def handle_draft_reapting_join_job(context: telegram.ext.ContextTypes.DEFA
     if not context.job or not context.job.chat_id or not isinstance(context.job.data, dict):
         return
 
-    game:Draft = games["draft"].get(context.job.data["game_id"], None)
-    if not game or game.state!= 0:
+    game:Draft | GuessThePlayer | Wilty | None = games.get(context.job.data["game_id"], None)
+    if not game or not isinstance(game, Draft) or game.state!= 0:
         return
 
     await context.bot.send_message(chat_id=context.job.chat_id, text=f"to join the game send /draft_join\n reaming time {round((context.job.data['time'] - datetime.now()).seconds)}")
@@ -48,14 +48,14 @@ async def handle_draft_start_game_job(context: telegram.ext.ContextTypes.DEFAULT
     if not context.job or not context.job.chat_id or not isinstance(context.job.data, dict) or not context.job_queue:
         return
 
-    game:Draft = games["draft"].get(context.job.data["game_id"], None)
-    if not game or game.state!= 0:
+    game:Draft | GuessThePlayer | Wilty | None = games.get(context.job.data["game_id"], None)
+    if not game or not isinstance(game, Draft) or game.state!= 0:
         return
     
     remove_jobs("draft_reapting_join_job", context)
     res = game.start_game()
     if not res:
-        del games["draft"][context.job.data["game_id"]]
+        del games[context.job.data["game_id"]]
         return await context.bot.send_message(text="not enougp players joined", chat_id=context.job.chat_id)
 
     data = {"game_id":context.job.chat_id, "time":datetime.now()}
@@ -70,9 +70,11 @@ async def handle_draft_join_command(update: telegram.Update, context: telegram.e
     if not update.message or not update.effective_chat or not update.effective_user:
         return
 
-    game:Draft = games["draft"].get(update.effective_chat.id, None)
+    game:Draft | GuessThePlayer | Wilty | None = games.get(update.effective_chat.id, None)
     if game == None:
         return await update.message.reply_text("there is no game please start one first /new_draft")
+    if not isinstance(game, Draft):
+        return await update.message.reply_text("there is a game of differant type running")
 
     res = game.join_game(player=update.effective_user)
     if not res:
@@ -88,10 +90,12 @@ async def handle_draft_join_callback(update: telegram.Update, context: telegram.
     q = update.callback_query
     await q.answer()
 
-    game:Draft = games["draft"].get(update.effective_chat.id, None)
+    game:Draft | GuessThePlayer | Wilty | None = games.get(update.effective_chat.id, None)
     if game == None:
         return await context.bot.send_message(text=f"{update.effective_user.mention_html()} there is no game please start one first /new_draft",
                                               chat_id=update.effective_chat.id, parse_mode=telegram.constants.ParseMode.HTML)
+    if not isinstance(game, Draft):
+        return
 
     res = game.join_game(player=update.effective_user)
     if not res:
@@ -105,13 +109,15 @@ async def handle_draft_start_game_command(update: telegram.Update, context: tele
     if not update.message or not update.effective_chat or not context.job_queue:
         return
 
-    game:Draft = games["draft"].get(update.effective_chat.id, None)
+    game:Draft | GuessThePlayer | Wilty | None = games.get(update.effective_chat.id, None)
     if game == None:
         return await update.message.reply_text("there is no game please start one first /new_draft")
+    if not isinstance(game, Draft):
+        return await update.message.reply_text("there is a game of differant type running")
 
     res = game.start_game()
     if not res:
-        del games["draft"][update.effective_chat.id]
+        del games[update.effective_chat.id]
         return await update.message.reply_text("cant start game with less than two players start new game /new_draft")
 
     data = {"game_id":update.effective_chat.id, "time":datetime.now()}
@@ -126,8 +132,8 @@ async def handle_draft_reapting_statement_job(context: telegram.ext.ContextTypes
         return
 
     print("if passed")
-    game:Draft = games["draft"].get(context.job.data["game_id"], None)
-    if not game or game.state != 1:
+    game:Draft | GuessThePlayer | Wilty | None = games.get(context.job.data["game_id"], None)
+    if not game or not isinstance(game, Draft) or game.state != 1:
         return
 
     print("found game")
@@ -139,8 +145,8 @@ async def handle_draft_set_state_command_job(context: telegram.ext.ContextTypes.
         return
 
     remove_jobs("draft_reapting_statement_job", context)
-    game:Draft = games["draft"].get(context.job.data["game_id"], None)
-    if not game or game.state != 1:
+    game:Draft | GuessThePlayer | Wilty | None = games.get(context.job.data["game_id"], None)
+    if not game or not isinstance(game, Draft) or game.state != 1:
         return
 
     await context.bot.send_message(chat_id=context.job.chat_id, text=f"the admin should send the state as /set_draft_state category, teams,teams should be separated by - and the number of teams must be {11 + game.num_players} formations in that order with commas\n supported formations are 442 443 4231 352 532 in this foramt")
@@ -153,9 +159,11 @@ async def handle_draft_set_state_command(update: telegram.Update, context:telegr
     if not update.effective_user.id in admins_list:
         return
 
-    game:Draft = games["draft"].get(update.effective_chat.id, None)
+    game:Draft | GuessThePlayer | Wilty | None = games.get(update.effective_chat.id, None)
     if game == None:
         return await update.message.reply_text("there is no game please start one first /new_draft")
+    if not isinstance(game, Draft):
+        return await update.message.reply_text("there is a game of differant type running")
 
     text = update.message.text.lower().replace("/set_draft_state", "").split(",")
     if len(text) != 3:
@@ -164,7 +172,7 @@ async def handle_draft_set_state_command(update: telegram.Update, context:telegr
     res, err = game.set_game_states(category=text[0].strip(), teams=text[1].split("-"), formation=text[2].strip())
     if not res:
         if err == "game error":
-            del games["draft"][update.effective_chat.id]
+            del games[update.effective_chat.id]
             return await update.message.reply_text("err happend game aported")
         if err == "no category error":
             return await update.message.reply_text("no category provided")
@@ -191,8 +199,8 @@ async def handle_draft_pick_team_callback(update: telegram.Update, context: tele
     q = update.callback_query
     await q.answer()
     
-    game:Draft = games["draft"].get(update.effective_chat.id, None)
-    if game == None:
+    game:Draft | GuessThePlayer | Wilty | None = games.get(update.effective_chat.id, None)
+    if game == None or not isinstance(game, Draft):
         return
 
     res = game.rand_team(update.effective_user.id)
@@ -207,8 +215,10 @@ async def handle_draft_add_pos(update: telegram.Update, context: telegram.ext.Co
         return
 
     print("if passed")
-    game:Draft = games["draft"].get(update.effective_chat.id, None)
+    game:Draft | GuessThePlayer | Wilty | None = games.get(update.effective_chat.id, None)
     if game == None:
+        return 
+    if not isinstance(game, Draft):
         return
 
     print("game found")
@@ -219,7 +229,7 @@ async def handle_draft_add_pos(update: telegram.Update, context: telegram.ext.Co
     res, status = game.add_pos_to_team(player=update.effective_user, added_player=update.message.text.lower().strip())
     if not res:
         if status == "game_error":
-            del games["draft"][update.effective_chat.id]
+            del games[update.effective_chat.id]
             return await update.message.reply_text("an error happend game aported")
         elif status == "picked_pos_error":
             return await update.message.reply_text("player has already picked this position")
@@ -228,7 +238,7 @@ async def handle_draft_add_pos(update: telegram.Update, context: telegram.ext.Co
         elif status == "picked_team_error":
             return await update.message.reply_text("this team has already passed")
         else:
-            del games["draft"][update.effective_chat.id]
+            del games[update.effective_chat.id]
             return await update.message.reply_text("an error happend game aported")
     if status == "new_pos":
         return await update.message.reply_text(f"player {game.players[game.players_ids[game.start_player_idx]][0].mention_html()} press the button to pick team",
@@ -244,11 +254,11 @@ async def handle_draft_add_pos(update: telegram.Update, context: telegram.ext.Co
         context.job_queue.run_once(handle_draft_set_votes_job, when=30, data=data, chat_id=update.effective_chat.id, name="draft_set_votes_job")
         teams = [(player[0], player[1]) for player in game.players.values()]
         teams = format_teams(teams)
-        await context.bot.send_message(text=f"the teams\n{teams}", chat_id=update.effective_chat.id)
+        await context.bot.send_message(text=f"the teams\n{teams}", chat_id=update.effective_chat.id, parse_mode=telegram.constants.ParseMode.HTML)
         await context.bot.send_message(text="the drafting has ended discuss the teams for 3 minutes then vote for the best", chat_id=update.effective_chat.id)
         return
     else:
-        del games["draft"][update.effective_chat.id]
+        del games[update.effective_chat.id]
         return await update.message.reply_text("an error happend game aported")
 
 async def handle_draft_reapting_votes_job(context: telegram.ext.ContextTypes.DEFAULT_TYPE):
@@ -257,8 +267,8 @@ async def handle_draft_reapting_votes_job(context: telegram.ext.ContextTypes.DEF
         return
 
     print("passed if")
-    game:Draft = games["draft"].get(context.job.data["game_id"], None)
-    if not game or game.state != 3:
+    game:Draft | GuessThePlayer | Wilty | None = games.get(context.job.data["game_id"], None)
+    if not game or not isinstance(game, Draft) or game.state != 3:
         return
 
     print("found game")
@@ -272,8 +282,8 @@ async def handle_draft_set_votes_job(context: telegram.ext.ContextTypes.DEFAULT_
     print("if passed")
     remove_jobs("draft_reapting_votes_job", context)
     chat_id = context.job.data["game_id"]
-    game:Draft = games["draft"].get(chat_id, None)
-    if not game or game.state != 3:
+    game:Draft | GuessThePlayer | Wilty | None = games.get(chat_id, None)
+    if not game or not isinstance(game, Draft) or game.state != 3:
         return
 
     print("found game")
@@ -296,8 +306,8 @@ async def handle_draft_reapting_votes_end_job(context: telegram.ext.ContextTypes
     if not context.job or not context.job.chat_id or not isinstance(context.job.data, dict):
         return
 
-    game:Draft = games["draft"].get(context.job.data["game_id"], None)
-    if not game or game.state != 3:
+    game:Draft | GuessThePlayer | Wilty | None = games.get(context.job.data["game_id"], None)
+    if not game or not isinstance(game, Draft) or game.state != 3:
         return
 
     await context.bot.send_message(chat_id=context.job.chat_id, text=f"reaming time to vote {round((context.job.data['time'] - datetime.now()).seconds)}")
@@ -313,8 +323,10 @@ async def handle_draft_vote_recive(update: telegram.Update, context: telegram.ex
     answer = update.poll_answer
     poll_data = context.bot_data[f"poll_{answer.poll_id}"]
     chat_id = poll_data["chat_id"]
-    game:Draft = games["draft"].get(chat_id, None)
+    game:Draft | GuessThePlayer | Wilty | None = games.get(chat_id, None)
     if game == None:
+        return 
+    if not isinstance(game, Draft):
         return
 
     print("game found")
@@ -346,8 +358,8 @@ async def handle_draft_end_votes_job(context: telegram.ext.ContextTypes.DEFAULT_
 
     remove_jobs("draft_reapting_votes_job", context)
     chat_id = context.job.data["game_id"]
-    game:Draft = games["draft"].get(chat_id, None)
-    if not game:
+    game:Draft | GuessThePlayer | Wilty | None = games.get(chat_id, None)
+    if not game or not isinstance(game, Draft):
         return
     
     poll_id = context.job.data["poll_id"]
@@ -370,8 +382,8 @@ async def handle_draft_end_game_job(context: telegram.ext.ContextTypes.DEFAULT_T
     print("if passed")
     remove_jobs("draft_reapting_votes_job", context)
     chat_id = context.job.data["game_id"]
-    game:Draft = games["draft"].get(chat_id, None)
-    if game == None or game.state != 3:
+    game:Draft | GuessThePlayer | Wilty | None = games.get(chat_id, None)
+    if game == None or not isinstance(game, Draft) or game.state != 3:
         return
 
     print("found game")
@@ -398,8 +410,11 @@ async def handle_draft_cancel_game(update: telegram.Update, context: telegram.ex
     if not update.effective_chat or not update.message:
         return
 
-    if not update.effective_chat.id in games["draft"]:
-        return await update.message.reply_text("there is no game")
+    game:Draft | GuessThePlayer | Wilty | None = games.get(update.effective_chat.id, None)
+    if game == None:
+        return await update.message.reply_text("there is no game please start one first /new_draft")
+    if not isinstance(game, Draft):
+        return await update.message.reply_text("there is a game of differant type running")
 
     remove_jobs("draft_reapting_votes_job", context)
     remove_jobs("draft_reapting_end_votes_job", context)
@@ -409,7 +424,7 @@ async def handle_draft_cancel_game(update: telegram.Update, context: telegram.ex
     remove_jobs("draft_start_game_job", context)
     remove_jobs("draft_reapting_statement_job", context)
     remove_jobs("draft_set_statement_command_job", context)
-    del games["draft"][update.effective_chat.id]
+    del games[update.effective_chat.id]
 
     await update.message.reply_text("game has been canceled")
 
