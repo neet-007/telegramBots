@@ -1,307 +1,192 @@
+from abc import update_abstractmethods
 import telegram
+from telegram._inline.inlinekeyboardbutton import InlineKeyboardButton
+from telegram._inline.inlinekeyboardmarkup import InlineKeyboardMarkup
 import telegram.ext
-from shared import Wilty, games
+from shared import Draft, GuessThePlayer, Wilty, games, remove_jobs
+from datetime import datetime
 
-async def handle_wilty_command(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
-    if not update.message or context == None or not update.effective_chat:
+async def handle_wilty_start_command(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
+    if not update.message or not update.effective_chat or not context.job_queue:
         return
 
-    wilty_games = games["wilty"]
-    if update.effective_chat.id in wilty_games:
-        return await update.message.reply_text("a game has already started")
+    if update.effective_chat.id in games:
+        return await update.message.reply_text("there is already a game")
 
-    wilty_games[update.effective_chat.id] = Wilty(chat_id=update.effective_chat.id)
+    game = Wilty()
+    games[update.effective_chat.id] = game
 
-    keyboard = [
-        [telegram.InlineKeyboardButton(text="join", callback_data="join_wilty")]
-    ]
+    data = {"chat_id":update.effective_chat.id, "time":datetime.now()}
+    context.job_queue.run_repeating(handle_wilty_reapting_join_job, data=data, interval=20, first=10,
+                                    chat_id=update.effective_chat.id, name="wilty_reapting_join_job")
+    context.job_queue.run_once(handle_wilty_start_game_job, when=60, data=data, chat_id=update.effective_chat.id,
+                               name="wilty_start_game_job")
 
-    return await update.message.reply_text("a game has started use /join or press the button", reply_markup=telegram.InlineKeyboardMarkup(keyboard))
+    await update.message.reply_text("a game has started join with /wilty_join or press the button\ngame starts after 1 minute",
+                                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(text="join", callback_data="wilty_join")]]))
 
 async def handle_wilty_join_command(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
-    if not update.message or context == None or not update.effective_user or not update.effective_chat:
+    if not update.message or not update.effective_chat or not update.effective_user:
         return
-    
-    game:Wilty = games["wilty"].get(update.effective_chat.id, None)
+
+    game:GuessThePlayer | Draft | Wilty | None = games.get(update.effective_chat.id, None)
     if game == None:
-        return await update.message.reply_text("there is no game please start one first /new_wilty")
+        return await update.message.reply_text("there is no game start one first /new_wilty")
+    if not isinstance(game, Wilty):
+        return await update.message.reply_text("there is a game of differant type running")
 
-    res = game.__join_game(player=update.effective_user)
+    res = game.join_game(player=update.effective_user)
     if not res:
-        return await update.message.reply_text("player has already joined the game")
+        return await update.message.reply_text(f"player f{update.effective_user.mention_html()} has already joined the game",
+                                               parse_mode=telegram.constants.ParseMode.HTML)
 
-    await update.message.reply_text(f"{update.effective_user.mention_html()} has joined the game", parse_mode=telegram.constants.ParseMode.HTML)
-    
-async def handle_wilty_join_callback(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
-    if not update.callback_query or not update.effective_chat or not update.effective_user or context == None:
+    await update.message.reply_text(f"player {update.effective_user.mention_html()} has joined the game",
+                                    parse_mode=telegram.constants.ParseMode.HTML)
+
+async def handle_wilty_reapting_join_job(context: telegram.ext.ContextTypes.DEFAULT_TYPE):
+    if not context.job or not context.job.chat_id or not isinstance(context.job.data, dict):
+        return
+
+    game:GuessThePlayer | Draft | Wilty | None = games.get(context.job.chat_id, None)
+    if game == None:
+        return await context.bot.send_message(text="there is no game start one first /new_wilty", chat_id=context.job.chat_id)
+    if not isinstance(game, Wilty):
+        return await context.bot.send_message(text="there is a game of differant type running", chat_id=context.job.chat_id)
+
+    await context.bot.send_message(chat_id=context.job.chat_id, text=f"reaming time to join {round((context.job.data['time'] - datetime.now()).seconds)}")
+
+async def handle_wilty_join_game_callback(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
+    if not update.callback_query or not update.effective_chat or not update.effective_user:
         return
 
     q = update.callback_query
     await q.answer()
 
-    game:Wilty = games["wilty"].get(update.effective_chat.id, None)
+    game:GuessThePlayer | Draft | Wilty | None = games.get(update.effective_chat.id, None)
     if game == None:
-        return await context.bot.send_message(text="the is no game please start one first /new_wilty", chat_id=update.effective_chat.id)
+        return await context.bot.send_message(text="there is no game start one first /new_wilty", chat_id=update.effective_chat.id)
+    if not isinstance(game, Wilty):
+        return await context.bot.send_message(text="there is a game of differant type running", chat_id=update.effective_chat.id)
 
-    res = game.__join_game(player=update.effective_user)
+    res = game.join_game(player=update.effective_user)
     if not res:
-        return await context.bot.send_message(text="player has already joined the game", chat_id=update.effective_chat.id)
+        return await context.bot.send_message(text=f"player {update.effective_user.mention_html()} has already joined game", chat_id=update.effective_chat.id,
+                                              parse_mode=telegram.constants.ParseMode.HTML)
 
-    return await context.bot.send_message(text=f"{update.effective_user.mention_html()} has joined the gage", chat_id=update.effective_chat.id,
-                                          parse_mode=telegram.constants.ParseMode.HTML)
+    await context.bot.send_message(text=f"player {update.effective_user.mention_html()} has joined the game", chat_id=update.effective_chat.id,
+                                   parse_mode=telegram.constants.ParseMode.HTML)
 
-async def handle_wilty_start_game(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
-    if not update.message or context == None or not update.effective_user or not update.effective_chat:
+async def handle_wilty_start_game_job(context: telegram.ext.ContextTypes.DEFAULT_TYPE):
+    if not context.job or not context.job.chat_id or not isinstance(context.job.data, dict):
         return
-    
-    game:Wilty = games["wilty"].get(update.effective_chat.id, None)
-    if game == None:
-        return await update.message.reply_text("there is no game please start one first /new_wilty")
 
-    res, curr_mode, curr_player = game.__start_game()
+    game:GuessThePlayer | Draft | Wilty | None = games.get(context.job.chat_id, None)
+    if game == None or not isinstance(game, Wilty) or game.state != 0:
+        return
+
+    remove_jobs("wilty_join_job", context)
+    res, err = game.start_game()
     if not res:
-        return await update.message.reply_text("cant start game with less than 3 players")
-
-    if curr_mode == None or curr_player == None:
-        del games["wilty"][update.effective_chat.id]
-        return await update.message.reply_text("and error happend please start a new game")
-
-    keyboard = [
-        [telegram.InlineKeyboardButton(text="send statments", callback_data="statements_wilty")]
-    ]
-    await update.message.reply_text(f"""the game has started the mod is {curr_mode.metion_html()} and you are quistioning {curr_player.metion_html()}\n 
-    all players must click the button to send the statments to the bot in a private chat\n
-    there is a 2 minutes limit
-    """, reply_markup=telegram.InlineKeyboardMarkup(keyboard))
-
-async def handle_wilty_statemnts_callback(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
-    if not update.callback_query or not update.effective_chat or not update.effective_user or context.user_data == None:
-        return
-
-    q = update.callback_query
-    await q.answer()
-
-    game:Wilty = games["wilty"].get(update.effective_chat.id, None)
-    if game == None:
-        return 
-
-    if update.effective_user.id in game.statements:
-        return
-
-    context.user_data["wilty_chat_id"] = update.effective_chat.id
-    await update.effective_user.send_message(text="send me the statements in the order of separated by commas ','")
-
-async def handle_wilty_statements_add(update: telegram.Update, context:telegram.ext.ContextTypes.DEFAULT_TYPE):
-    if not update.message or not update.message.text or not update.effective_chat or not update.effective_user or context.user_data == None:
-        return
-
-    chat_id = context.user_data.get("wilty_chat_id", None)
-    if chat_id == None:
-        context.user_data.clear()
-        return
-
-    game:Wilty = games["wilty"].get(chat_id, None)
-    if game == None:
-        context.user_data.clear()
-        return 
-
-    if update.effective_user.id in game.statements:
-        context.user_data.clear()
-        return
-        
-    text = update.message.text.split(",")
-    if len(text) != 4:
-        return await update.message.reply_text("you must send four statemets in the order of separated by commas ','")
-
-    res = game.__add_player_statements(update.effective_user.id, text)
-    if not res:
-        return await update.message.reply_text("you must send four statemets in the order of separated by commas ','")
-
-    if len(game.statements) == game.num_players:
-        context.user_data.clear()
-        res_ = game.__set_players_statements()
-        if not res_:
-            return
-        await handle_wilty_start_round(context, chat_id)
-
-    await update.message.reply_text("the statemnst have been recived wait until the rest of the players respond")
-
-async def handle_wilty_start_round(context:telegram.ext.ContextTypes.DEFAULT_TYPE, chat_id:int):
-    game:Wilty = games["wilty"].get(chat_id, None)
-    if game == None:
-        return
-
-    started, round_type, curr_mod, curr_player = game.__start_round()
-    if not started:
-        return await context.bot.send_message(text="could not start the round", chat_id=chat_id)
-    if not curr_mod or not curr_player:
-        return
-
-    keyboard = [
-        [telegram.InlineKeyboardButton(text="send mod statement")]
-    ]
-    await context.bot.send_message(text=f"""round with type {round_type} started the mod {curr_mod.mention_html()} and questioning player
-    {curr_player.metion_html()} the mod {curr_mod.mention_html()} press the button to send your statemtent""",
-                                   parse_mode=telegram.constants.ParseMode.HTML, chat_id=chat_id, reply_markup=telegram.InlineKeyboardMarkup(keyboard))
-
-async def handle_wilty_mod_statement_callback(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
-    if not update.callback_query or not update.effective_user or context.user_data == None:
-        return
-
-    q = update.callback_query
-    await q.answer()
-
-    if not q.message or not q.message.chat:
-        return
-
-    game:Wilty = games["wilty"].get(q.message.chat.id, None)
-    if game == None:
-        return 
-
-    if update.effective_user.id != game.curr_mod_id:
-        return
-
-    context.user_data["wilty_chat_id"] = q.message.chat.id
-    await update.effective_user.send_message("send me the statement")
-    
-async def handle_wilty_mod_statement_message(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
-    if not update.message or not update.message.text or not update.effective_user or context.user_data == None:
-        return
-
-    chat_id = context.user_data.get("wility_chat_id", None)
-    if not chat_id:
-        return
-
-    game:Wilty = games["wilty"].get(chat_id, None)
-    if not game:
-        return
-
-    if update.effective_user.id != game.curr_mod_id:
-        return
-
-    text = update.message.text
-    game.__set_mod_state(text)
-
-    accussed = game.players.get(game.players_ids[game.curr_player_idx], None)
-    if not accussed:
-        return 
-
-    await context.bot.send_message(text=f"the statement is {game.curr_statement.capitalize()} the accussed is {accussed}",
-                                   chat_id=chat_id)
-
-async def handle_wilty_round_vote_message(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
-    if not update.effective_chat:
-        return
-
-    game:Wilty = games["wilty"].get(update.effective_chat.id, None)
-    if game == None:
-        return
-
-    options = ["true", "false"]
-    message = await context.bot.send_poll(chat_id=update.effective_chat.id, question="is he lying",
-                                options=options, is_anonymous=False, allows_multiple_answers=False)
-
-    poll_data = {
-        "chat_id":update.effective_chat.id,
-        "question":"is he lying",
-        "options":options,
-        "message_id":message.message_id,
-        "answers":[]
-    }
-
-    context.bot_data[message.poll.id] = poll_data
-
-async def handle_wilty_round_vote(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
-    if not update.poll_answer or not update.poll or not update.poll.options or not update.effective_chat or not update.effective_user:
-        return
-
-
-    game:Wilty = games["wilty"].get(update.effective_chat.id, None)
-    if game == None:
-        return
-
-    answer = update.poll_answer
-    if not answer.user:
-        return
-
-    if answer.user.id == game.curr_mod_id or answer.user.id == game.players[game.players_ids[game.curr_player_idx]].id:
-        return
-
-    poll_data = context.bot_data.get(answer.poll_id, None)
-    if poll_data == None:
-        return
-
-    try:
-        answers = poll_data["answers"]
-    except KeyError:
-        return
-
-    if answer.user.id in answers:
-        return
-
-    chat_id = poll_data["chad_id"]
-    answers.append(answer.user.id)
-    await context.bot.send_message(text=f"player {answer.user.mention_html()} voted", chat_id=chat_id, parse_mode=telegram.constants.ParseMode.HTML)
-
-    if len(answers) == game.num_players - 2:
-        context.bot_data.clear()
-        context.bot_data["options"] = update.poll.options
-        await handle_wilty_end_round(update, context, chat_id)
-        return await context.bot.stop_poll(chat_id=chat_id, message_id=poll_data["message_id"])
-
-async def handle_wilty_end_round(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE, chat_id:int):
-    game:Wilty = games["wilty"].get(chat_id, None)
-    if game == None:
-        return
-    try:
-        options = context.bot_data["options"]
-    except KeyError:
-        return
-
-    votes = [0, 0]
-    for option in options:
-        if option.text == "false":
-            votes[0] += 1
+        del games[context.job.chat_id]
+        if err == "game error":
+            return await context.bot.send_message(text="game error game aborted", chat_id=context.job.chat_id)
+        if err == "num players error":
+            return await context.bot.send_message(text="not enough players", chat_id=context.job.chat_id)
         else:
-            votes[1] += 1
+            return await context.bot.send_message(text="game error game aborted", chat_id=context.job.chat_id)
 
-    err, players_won, next_state = game.__end_round(votes=tuple(votes))
-    if err:
-        return await context.bot.send_message(text="an error happend", chat_id=chat_id)
+    for id in game.players_ids:
+        context.bot_data[id] = context.job.chat_id
 
-    if players_won:
-        await context.bot.send_message(text="you were rigth you got it right", chat_id=chat_id)
-    else:
-        await context.bot.send_message(text=f"you were wrong {game.players[game.players_ids[game.curr_player_idx]].mention_html()}", chat_id=chat_id)
+    print(context.bot_data)
+    await context.bot.send_message(text=f"game started send your statements to the bot in a private message, it must be in the format\ntransfers, managers, player comparisions, predictions, young players\n each statement is inorder and separated by comma ',', dont use commas in your statement",
+                                   chat_id=context.job.chat_id, parse_mode=telegram.constants.ParseMode.HTML)
 
-    if next_state == "end_game":
-        return await handle_wilty_end_game(update, context, chat_id)
-
-    if next_state == "end_round_type":
-        await context.bot.send_message(text=f"""round {game.round_type} started the mod is {game.players[game.curr_mod_id].metion_html()} you are questioning player {game.players[game.players_ids[game.curr_player_idx]].mention_html()}\n
-                                            the mod {game.players[game.curr_mod_id].mention_html()} will make the statement now""", chat_id=chat_id)
-        await context.bot.send_message(text="make your statement", chat_id=game.curr_mod_id)
+async def handle_wilty_get_statements(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
+    if not update.message or not update.effective_chat or update.effective_chat.type != "private" or not update.effective_user or not update.message.text:
         return
 
-    if next_state == "continue_round":
-        await context.bot.send_message(text=f"""you are questioning player {game.players[game.players_ids[game.curr_player_idx]].mention_html()}\n
-                                            the mod {game.players[game.curr_mod_id].mention_html()} will make the statement now""", chat_id=chat_id)
-        await context.bot.send_message(text="make your statement", chat_id=game.curr_mod_id)
+    chat_id = context.bot_data.get(update.effective_user.id, None)
+    if chat_id == None:
         return
-    else:
-        await context.bot.send_message(text="an error happend", chat_id=chat_id)
-        del games["wilty"][chat_id]
 
-async def handle_wilty_end_game(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE, chat_id:int):
-    game:Wilty = games["wilty"].get(chat_id, None)
+    game:GuessThePlayer | Draft | Wilty | None = games.get(chat_id, None)
+    if game == None or not isinstance(game, Wilty):
+        return
+    if game.state != 1:
+        return
+
+    statements = update.message.text.split(",")
+    res, err = game.get_statements(player=update.effective_user, statements=statements)
+    if not res:
+        if err == "game error":
+            return
+        if err == "player has submited error":
+            return context.bot.send_message(text="you have already sent your statements", chat_id=chat_id)
+        if err == "statements length error":
+            return context.bot.send_message(text="you must provide 5 statements separated by comma ','", chat_id=chat_id)
+
+    if err == "start game":
+        res_, _ = game.start_round()
+        if not res_:
+                return
+        await context.bot.send_message(text=f"the curr mode is {game.players[game.players_ids[game.curr_mod_idx]].mention_html} and curr player is {game.players[game.players_ids[game.curr_player_idx]].mention_html} the mod must send me the statemnt\n send __same__ if you dont want to change else write the statment", chat_id=chat_id,
+                                       parse_mode=telegram.constants.ParseMode.HTML)
+
+async def handle_wilty_get_mod_statement(update: telegram.Update, context: telegram.ext.ContextTypes.DEFAULT_TYPE):
+    if not update.message or not update.effective_chat or update.effective_chat.type != "private" or not update.effective_user or not update.message.text or not context.job_queue:
+        return
+
+    chat_id = context.bot_data.get(update.effective_user.id, None)
+    if chat_id == None:
+        return
+
+    game:GuessThePlayer | Draft | Wilty | None = games.get(chat_id, None)
+    if game == None or not isinstance(game, Wilty):
+        return
+    if game.state != 1:
+        return
+
+    res, err = game.get_mod_statement(player=update.effective_user, statement=update.message.text)
+    if not res:
+        if err == "game error":
+            return
+        if err == "curr mod error":
+            return
+
+    data = {"chat_id":update.effective_chat.id, "time":datetime.now()}
+    context.job_queue.run_repeating(handle_wilty_reapting_vote_job, data=data, interval=20, first=10,
+                                    chat_id=chat_id, name="wilty_reapting_vote_job")
+    context.job_queue.run_once(handle_wilty_start_vote_job, when=60, data=data, chat_id=chat_id,
+                               name="wilty_start_vote_job")
+    await context.bot.send_message(text=f"the curr player is {game.players[game.players_ids[game.curr_player_idx]].mention_html()} the statement is {game.curr_statement} you have 3 mintues to discuss until the vote", chat_id=chat_id)
+
+async def handle_wilty_reapting_vote_job(context: telegram.ext.ContextTypes.DEFAULT_TYPE):
+    if not context.job or not context.job.chat_id or not isinstance(context.job.data, dict):
+        return
+
+    game:GuessThePlayer | Draft | Wilty | None = games.get(context.job.chat_id, None)
     if game == None:
+        return await context.bot.send_message(text="there is no game start one first /new_wilty", chat_id=context.job.chat_id)
+    if not isinstance(game, Wilty):
+        return await context.bot.send_message(text="there is a game of differant type running", chat_id=context.job.chat_id)
+
+    await context.bot.send_message(chat_id=context.job.chat_id, text=f"reaming time to discusse {round((context.job.data['time'] - datetime.now()).seconds)}")
+
+async def handle_wilty_start_vote_job(context: telegram.ext.ContextTypes.DEFAULT_TYPE):
+    if not context.job or not context.job.chat_id or not isinstance(context.job.data, dict):
         return
 
-    scores = game.__get_scores()
-    del games["wilty"][chat_id]
+    game:GuessThePlayer | Draft | Wilty | None = games.get(context.job.chat_id, None)
+    if game == None or not isinstance(game, Wilty) or game.state != 0:
+        return
 
-    text = ""
-    for player, score in scores.items():
-        text += f"{player}: {score}\n"
+    remove_jobs("wilty_reapting_vote_job", context)
 
-    await context.bot.send_message(text=f"scores:\n {text}", chat_id=chat_id)
+    poll = {}
+
+    print(context.bot_data)
+    await context.bot.send_message(text=f"game started send your statements to the bot in a private message, it must be in the format\ntransfers, managers, player comparisions, predictions, young players\n each statement is inorder and separated by comma ',', dont use commas in your statement",
+                                   chat_id=context.job.chat_id, parse_mode=telegram.constants.ParseMode.HTML)
+
+
